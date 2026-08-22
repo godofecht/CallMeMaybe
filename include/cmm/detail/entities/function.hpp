@@ -12,18 +12,16 @@
 namespace cmm {
 namespace detail {
 
-// Raw function pointer for dynamic dispatch
-using InvokerFn = cmm::Error (*)(std::span<Value>, Value&);
+using InvokerFn = cmm::Error (*)(std::span<Value>, Value&, const void* instance_override);
 
-// Bitfield flags to save memory per function entity
 struct FunctionFlags {
     bool is_member_function : 1 {false};
     bool is_static_function : 1 {false};
+    bool is_const_member_function : 1 {false};
     bool is_constructor : 1 {false};
     bool is_destructor : 1 {false};
 };
 
-// Runtime representation of a function (free, member, static, constructor, destructor)
 class Function : public Entity {
 public:
     Function(std::string_view name,
@@ -34,22 +32,17 @@ public:
         flags_.is_static_function = is_static_function;
     }
 
-    void set_thunk(InvokerFn thunk) {
-        thunk_ = thunk;
+    void set_thunk(InvokerFn thunk) { thunk_ = thunk; }
+
+    cmm::Error invoke(std::span<Value> args, Value& out,
+                      const void* instance_override = nullptr) const {
+        if (!thunk_) return cmm::Error::ThunkNotInitialized;
+        return thunk_(args, out, instance_override);
     }
 
-    // Type-checked dynamic invocation. Writes the result into out and returns
-    // a cmm::Error describing the outcome
-    cmm::Error invoke(std::span<Value> args, Value& out) const {
-        if (!thunk_) {
-            return cmm::Error::ThunkNotInitialized;
-        }
-        return thunk_(args, out);
-    }
-
-    // Setters
     void set_is_member_function(bool v) { flags_.is_member_function = v; }
     void set_is_static_function(bool v) { flags_.is_static_function = v; }
+    void set_is_const_member_function(bool v) { flags_.is_const_member_function = v; }
     void set_is_constructor(bool v) { flags_.is_constructor = v; }
     void set_is_destructor(bool v) { flags_.is_destructor = v; }
 
@@ -57,9 +50,9 @@ public:
     void set_return_type_id(cmm::info id) { return_type_id_ = id; }
     void add_parameter_id(cmm::info id) { parameter_ids_.push_back(id); }
 
-    // Getters
     bool is_member_function() const { return flags_.is_member_function; }
     bool is_static_function() const { return flags_.is_static_function; }
+    bool is_const_member_function() const { return flags_.is_const_member_function; }
     bool is_constructor() const { return flags_.is_constructor; }
     bool is_destructor() const { return flags_.is_destructor; }
     const FunctionFlags& flags() const { return flags_; }
@@ -70,19 +63,9 @@ public:
 
 private:
     FunctionFlags flags_{};
-
-    // The class (for member functions / ctors / dtors) or namespace that
-    // contains this function. invalid_info for top-level free functions.
     cmm::info parent_id_{cmm::invalid_info};
-
-    // Type ids registered in the registry. return_type_id_ identifies the
-    // Type for the return type; parameter_ids_ holds Parameter info
-    // ids in declaration order (each Parameter then has its own type_id).
     cmm::info return_type_id_{cmm::invalid_info};
     std::vector<cmm::info> parameter_ids_;
-
-    // The type-erased invoker. For non-static member functions, the 
-    //  first Value in args should be the instance pointer (Class*)
     InvokerFn thunk_{nullptr};
 };
 
