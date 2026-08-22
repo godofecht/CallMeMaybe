@@ -17,6 +17,7 @@
 #include "cmm/info.hpp"
 #include "cmm/error.hpp"
 #include "cmm/detail/hash/info_hash.hpp"
+#include "cmm/detail/entities/base.hpp"
 #include "cmm/detail/entities/class.hpp"
 #include "cmm/detail/entities/data_member.hpp"
 #include "cmm/detail/entities/enum.hpp"
@@ -51,7 +52,8 @@ public:
                                        DataMember,
                                        Function,
                                        Parameter,
-                                       Enumerator>;
+                                       Enumerator,
+                                       Base>;
 
     static Registry& instance() {
         static Registry inst;
@@ -77,19 +79,14 @@ public:
         cmm::Error result = cmm::Error::EntityNotFound;
 
         if constexpr (std::meta::is_function(EntityRefl)) {
-            CMM_REG_LOG(" Registering free function: " << std::meta::display_string_of(EntityRefl) << "\n");
             result = register_free_function<EntityRefl>(id);
         } else if constexpr (std::meta::is_variable(EntityRefl)) {
-            CMM_REG_LOG(" Registering variable: " << std::meta::display_string_of(EntityRefl) << "\n");
             result = register_variable<EntityRefl>(id);
         } else if constexpr (std::meta::is_class_type(EntityRefl) || std::meta::is_union_type(EntityRefl)) {
-            CMM_REG_LOG(" Registering class/union: " << std::meta::display_string_of(EntityRefl) << "\n");
             result = register_class<EntityRefl>(id);
         } else if constexpr (std::meta::is_enum_type(EntityRefl)) {
-            CMM_REG_LOG(" Registering enum: " << std::meta::display_string_of(EntityRefl) << "\n");
             result = register_enum<EntityRefl>(id);
         } else if constexpr (std::meta::is_type(EntityRefl)) {
-            CMM_REG_LOG(" Registering type: " << std::meta::display_string_of(EntityRefl) << "\n");
             ensure_type_registered<EntityRefl>();
             result = cmm::Error::Success;
         }
@@ -132,6 +129,14 @@ public:
         return std::visit([](auto&& arg) -> std::string_view { return arg.name(); }, it->second);
     }
 
+    std::string_view get_entity_display_name(cmm::info id) const {
+        freeze();
+        if (id == cmm::invalid_info) return {};
+        auto it = entity_registry_.find(id);
+        if (it == entity_registry_.end()) return {};
+        return std::visit([](auto&& arg) -> std::string_view { return arg.display_name(); }, it->second);
+    }
+
 private:
     struct TransparentStringHash {
         using is_transparent = void;
@@ -156,8 +161,6 @@ private:
 
         auto [it, inserted] = top_level_entities_.emplace(std::string(name), id);
         if (!inserted && it->second != id) {
-            // Bare-name lookup is only valid when unambiguous. Canonical display
-            // names can still be used to address individual overloads/entities.
             it->second = cmm::invalid_info;
         }
     }
@@ -269,6 +272,7 @@ private:
     template <std::meta::info FuncRefl>
     cmm::Error register_free_function(cmm::info id) {
         Function func(std::meta::identifier_of(FuncRefl));
+        func.set_display_name(std::meta::display_string_of(FuncRefl));
         if (cmm::Error err = register_function_signature<FuncRefl>(func, id);
             err != cmm::Error::Success) {
             return err;
@@ -318,6 +322,7 @@ private:
         }
 
         Parameter p(p_name, p_type_id, func_id, idx);
+        p.set_display_name(std::meta::display_string_of(ParamRefl));
         p.set_decayed_type_id(p_decayed_id);
 
         if (cmm::Error err = insert_unique(p_id, std::move(p));
@@ -335,6 +340,7 @@ private:
         constexpr bool is_const = std::meta::is_const_type(var_type_refl);
 
         Variable var(std::meta::identifier_of(VarRefl), type_id);
+        var.set_display_name(std::meta::display_string_of(VarRefl));
         var.set_is_const(is_const);
 
         constexpr void* var_address =
@@ -377,6 +383,7 @@ private:
             const auto val = static_cast<std::int64_t>([:enumerator:]);
 
             Enumerator en(enumerator_name, val);
+            en.set_display_name(std::meta::display_string_of(enumerator));
             en.set_parent_id(enum_id);
             result = insert_unique(enumerator_id, std::move(en));
             if (result == cmm::Error::Success) {
@@ -394,12 +401,32 @@ private:
         ensure_type_registered<ClassRefl>();
         Class cls = make_class_stub<ClassRefl>();
 
+        cmm::Error result = cmm::Error::Success;
         template for (constexpr std::meta::info base : std::define_static_array(
                           std::meta::bases_of(ClassRefl, std::meta::access_context::unchecked()))) {
-            cls.add_base(ensure_type_registered<std::meta::type_of(base)>());
+            if (result != cmm::Error::Success) continue;
+
+            constexpr std::meta::info base_type_refl = std::meta::type_of(base);
+            const cmm::info base_type_id = ensure_type_registered<base_type_refl>();
+            const cmm::info base_id = cmm::detail::hash_entity(base);
+
+            Base base_entity(std::meta::display_string_of(base_type_refl), base_type_id, class_id);
+            base_entity.set_display_name(std::meta::display_string_of(base));
+            base_entity.set_is_virtual(std::meta::is_virtual(base));
+            if constexpr (std::meta::is_public(base)) {
+                base_entity.set_access(Access::Public);
+            } else if constexpr (std::meta::is_protected(base)) {
+                base_entity.set_access(Access::Protected);
+            } else {
+                base_entity.set_access(Access::Private);
+            }
+
+            result = insert_unique(base_id, std::move(base_entity));
+            if (result == cmm::Error::Success) {
+                cls.add_base(base_id);
+            }
         }
 
-        cmm::Error result = cmm::Error::Success;
         template for (constexpr std::meta::info member : std::define_static_array(
                           std::meta::members_of(ClassRefl, std::meta::access_context::unchecked()))) {
             if (result != cmm::Error::Success) continue;
@@ -414,7 +441,6 @@ private:
                 cls.add_member_name(std::meta::identifier_of(member), member_id);
             }
             cls.add_member(member_id);
-            CMM_REG_LOG(" Registering class member: " << std::meta::display_string_of(member) << "\n");
 
             if constexpr (std::meta::is_nonstatic_data_member(member)) {
                 constexpr std::meta::info mem_type_refl = std::meta::type_of(member);
@@ -422,9 +448,11 @@ private:
                 const cmm::info mem_type_id = ensure_type_registered<mem_type_refl>();
 
                 DataMember dm(std::meta::identifier_of(member), false);
+                dm.set_display_name(std::meta::display_string_of(member));
                 dm.set_type_id(mem_type_id);
                 dm.set_parent_id(class_id);
                 dm.set_offset_bytes(std::meta::offset_of(member).bytes);
+                dm.set_offset_bits(std::meta::offset_of(member).bits);
                 dm.set_is_bit_field(std::meta::is_bit_field(member));
                 dm.set_is_const(is_const);
 
@@ -441,6 +469,7 @@ private:
                 if (result == cmm::Error::Success) cls.add_nonstatic_data_member(member_id);
             } else if constexpr (std::meta::is_constructor(member)) {
                 Function ctor(std::meta::display_string_of(member), true, false);
+                ctor.set_display_name(std::meta::display_string_of(member));
                 ctor.set_is_constructor(true);
                 ctor.set_parent_id(class_id);
                 result = register_function_signature<member>(ctor, member_id);
@@ -451,6 +480,7 @@ private:
                 if (result == cmm::Error::Success) cls.add_constructor(member_id);
             } else if constexpr (std::meta::is_destructor(member)) {
                 Function dtor(std::meta::display_string_of(member), true, false);
+                dtor.set_display_name(std::meta::display_string_of(member));
                 dtor.set_is_destructor(true);
                 dtor.set_parent_id(class_id);
                 dtor.set_thunk(cmm::detail::create_destructor_thunk<member>());
@@ -466,6 +496,7 @@ private:
                 }
 
                 Function fn(fn_name, true, is_static);
+                fn.set_display_name(std::meta::display_string_of(member));
                 fn.set_parent_id(class_id);
                 result = register_function_signature<member>(fn, member_id);
                 if (result == cmm::Error::Success) {
@@ -479,6 +510,7 @@ private:
                 const cmm::info mem_type_id = ensure_type_registered<mem_type_refl>();
 
                 DataMember dm(std::meta::identifier_of(member), true);
+                dm.set_display_name(std::meta::display_string_of(member));
                 dm.set_type_id(mem_type_id);
                 dm.set_parent_id(class_id);
                 dm.set_is_const(is_const);
