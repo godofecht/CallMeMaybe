@@ -66,6 +66,15 @@ consteval cmm::info hash_parameter(std::meta::info entity) {
     return hash_string(std::meta::display_string_of(std::meta::type_of(entity)), hash);
 }
 
+consteval cmm::info hash_base(std::meta::info entity) {
+    cmm::info hash = hash_string("base:", hash_entity(std::meta::parent_of(entity)));
+    hash = hash_integer(hash_entity(std::meta::type_of(entity)), hash);
+    hash = hash_integer(std::meta::is_virtual(entity) ? 1U : 0U, hash);
+    hash = hash_integer(std::meta::is_public(entity) ? 0U :
+                        std::meta::is_protected(entity) ? 1U : 2U, hash);
+    return hash;
+}
+
 #if defined(__clang__)
 
 consteval void append_qualified_name(std::meta::info entity,
@@ -185,9 +194,8 @@ consteval cmm::info hash_clang_entity(std::meta::info entity,
         return hash_clang_function_qualifiers(entity, hash);
     }
 
-    if (std::meta::is_function_parameter(entity)) {
-        return hash_parameter(entity);
-    }
+    if (std::meta::is_function_parameter(entity)) return hash_parameter(entity);
+    if (std::meta::is_base(entity)) return hash_base(entity);
 
     hash = hash_clang_qualified_name(entity, hash_string("entity:", hash));
     if (std::meta::is_variable(entity) ||
@@ -216,9 +224,8 @@ consteval cmm::info hash_entity(std::meta::info entity) {
         return hash_string(std::meta::display_string_of(entity), hash);
     }
 
-    if (std::meta::is_function_parameter(entity)) {
-        return hash_parameter(entity);
-    }
+    if (std::meta::is_function_parameter(entity)) return hash_parameter(entity);
+    if (std::meta::is_base(entity)) return hash_base(entity);
 
     if (std::meta::is_enumerator(entity)) {
         cmm::info hash = hash_string("enumerator:", hash_entity(std::meta::parent_of(entity)));
