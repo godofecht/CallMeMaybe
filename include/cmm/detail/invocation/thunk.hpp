@@ -36,13 +36,24 @@ constexpr bool is_compatible_argument(
 
 template <std::meta::info ParamTypeRefl>
 constexpr bool is_argument_valid(const cmm::Value& arg) {
+    using Param = typename[:ParamTypeRefl:];
+    using Base = std::remove_cvref_t<Param>;
+
     constexpr cmm::info p_base_id = cmm::detail::hash_entity(std::meta::decay(ParamTypeRefl));
     constexpr bool p_is_ref = std::meta::is_reference_type(ParamTypeRefl);
     constexpr bool p_is_const = std::meta::is_const_type(std::meta::remove_reference(ParamTypeRefl));
     constexpr bool p_is_rvalue_ref = std::meta::is_rvalue_reference_type(ParamTypeRefl);
 
-    return is_compatible_argument(arg.type_id(), arg.policy(), p_base_id,
-                                  p_is_ref, p_is_const, p_is_rvalue_ref);
+    if (!is_compatible_argument(arg.type_id(), arg.policy(), p_base_id,
+                                p_is_ref, p_is_const, p_is_rvalue_ref)) {
+        return false;
+    }
+
+    if constexpr (!std::is_reference_v<Param> && !std::is_copy_constructible_v<Base>) {
+        return arg.policy() == cmm::Value::Policy::Owned ||
+               arg.policy() == cmm::Value::Policy::RvalueRef;
+    }
+    return true;
 }
 
 template <std::meta::info ParamTypeRefl>
@@ -60,15 +71,26 @@ decltype(auto) extract_argument(cmm::Value& value) {
         }
     } else if constexpr (std::is_rvalue_reference_v<Param>) {
         return static_cast<Param>(std::move(*const_cast<Base*>(ptr)));
+    } else if constexpr (!std::is_copy_constructible_v<Base>) {
+        return Param(std::move(*const_cast<Base*>(ptr)));
     } else {
-        return static_cast<Param>(*ptr);
+        if (value.policy() == cmm::Value::Policy::Owned ||
+            value.policy() == cmm::Value::Policy::RvalueRef) {
+            return Param(std::move(*const_cast<Base*>(ptr)));
+        }
+        return Param(*ptr);
     }
 }
 
 template <typename T>
 struct PropertyThunks {
     static Value get(const void* inst, std::ptrdiff_t offset) {
-        return Value(*reinterpret_cast<const T*>(static_cast<const char*>(inst) + offset));
+        const T& value = *reinterpret_cast<const T*>(static_cast<const char*>(inst) + offset);
+        if constexpr (std::is_copy_constructible_v<T>) {
+            return Value(value);
+        } else {
+            return Value::cref(value);
+        }
     }
     static Value get_ref(void* inst, std::ptrdiff_t offset) {
         return Value::ref(*reinterpret_cast<T*>(static_cast<char*>(inst) + offset));
@@ -77,17 +99,26 @@ struct PropertyThunks {
         return Value::cref(*reinterpret_cast<const T*>(static_cast<const char*>(inst) + offset));
     }
     static cmm::Error set(void* inst, std::ptrdiff_t offset, const Value& val) {
-        const T* typed = val.get_if<T>();
-        if (!typed) return cmm::Error::TypeMismatch;
-        *reinterpret_cast<T*>(static_cast<char*>(inst) + offset) = *typed;
-        return cmm::Error::Success;
+        if constexpr (!std::is_copy_assignable_v<T>) {
+            return cmm::Error::NonCopyableValue;
+        } else {
+            const T* typed = val.get_if<T>();
+            if (!typed) return cmm::Error::TypeMismatch;
+            *reinterpret_cast<T*>(static_cast<char*>(inst) + offset) = *typed;
+            return cmm::Error::Success;
+        }
     }
 };
 
 template <typename T>
 struct StaticThunks {
     static Value get(const void* address) {
-        return Value(*reinterpret_cast<const T*>(address));
+        const T& value = *reinterpret_cast<const T*>(address);
+        if constexpr (std::is_copy_constructible_v<T>) {
+            return Value(value);
+        } else {
+            return Value::cref(value);
+        }
     }
     static Value get_ref(void* address) {
         return Value::ref(*reinterpret_cast<T*>(address));
@@ -96,10 +127,14 @@ struct StaticThunks {
         return Value::cref(*reinterpret_cast<const T*>(address));
     }
     static cmm::Error set(void* address, const Value& val) {
-        const T* typed = val.get_if<T>();
-        if (!typed) return cmm::Error::TypeMismatch;
-        *reinterpret_cast<T*>(address) = *typed;
-        return cmm::Error::Success;
+        if constexpr (!std::is_copy_assignable_v<T>) {
+            return cmm::Error::NonCopyableValue;
+        } else {
+            const T* typed = val.get_if<T>();
+            if (!typed) return cmm::Error::TypeMismatch;
+            *reinterpret_cast<T*>(address) = *typed;
+            return cmm::Error::Success;
+        }
     }
 };
 
