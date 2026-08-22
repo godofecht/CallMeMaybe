@@ -11,27 +11,19 @@
 namespace cmm {
 namespace detail {
 
-// Thunk signatures for dynamic global variable access
 using VariableGetterFn = Value (*)(const void* address);
 using VariableRefGetterFn = Value (*)(void* address);
 using VariableSetterFn = cmm::Error (*)(void* address, const Value& value);
 
-// Represents a global or namespace-scope variable.
-// Like DataMember, it HAS a type (it is not a type itself), 
-// so it inherits directly from Entity.
 class Variable : public Entity {
 public:
     Variable(std::string_view name, cmm::info type_id)
         : Entity(name), type_id_(type_id) {}
 
-    /*
-    Dynamic Property Access
-    */
-
     cmm::Error get_value(Value& out) const {
         if (!address_) return cmm::Error::NullValue;
         if (!getter_) return cmm::Error::ThunkNotInitialized;
-        
+
         out = getter_(address_);
         return cmm::Error::Success;
     }
@@ -39,7 +31,7 @@ public:
     cmm::Error get_ref(Value& out) const {
         if (!address_) return cmm::Error::NullValue;
         if (!ref_getter_) return cmm::Error::ThunkNotInitialized;
-        
+
         out = ref_getter_(address_);
         return cmm::Error::Success;
     }
@@ -50,22 +42,18 @@ public:
         }
         if (!address_) return cmm::Error::NullValue;
         if (!setter_) return cmm::Error::ThunkNotInitialized;
-        
+
         return setter_(address_, value);
     }
 
-    /*
-    Accessors & Mutators
-    */
-
     cmm::info type_id() const { return type_id_; }
 
-    // Absolute memory address of the global variable
-    void* address() const { return address_; }
+    const void* address() const { return address_; }
+    void* mutable_address() const {
+        return (is_const_ || is_constexpr_) ? nullptr : address_;
+    }
     void set_address(void* ptr) { address_ = ptr; }
 
-    // Constness tracking is important to prevent the runtime 
-    // library from attempting to write to read-only memory segments
     bool is_const() const { return is_const_; }
     void set_is_const(bool c) { is_const_ = c; }
 
@@ -81,16 +69,13 @@ public:
 
 private:
     cmm::info type_id_{cmm::invalid_info};
-    
-    // Unlike DataMember which stores an offset_, globals store an absolute pointer
     void* address_{nullptr};
 
     bool is_const_{false};
     bool is_constexpr_{false};
-    
+
     cmm::info parent_namespace_id_{cmm::invalid_info};
 
-    // Vtable for property access
     VariableGetterFn getter_{nullptr};
     VariableRefGetterFn ref_getter_{nullptr};
     VariableSetterFn setter_{nullptr};
