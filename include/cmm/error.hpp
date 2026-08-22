@@ -16,7 +16,8 @@ enum class Error {
     ConstViolation,
     StaticMismatch,
     BitFieldUnsupported,
-    EntityIdCollision
+    EntityIdCollision,
+    RegistryFrozen
 };
 
 inline const char* to_string(Error err) noexcept {
@@ -34,6 +35,7 @@ inline const char* to_string(Error err) noexcept {
         case Error::StaticMismatch:       return "Static/non-static member access mismatch";
         case Error::BitFieldUnsupported:  return "Bit-fields are not supported for dynamic access";
         case Error::EntityIdCollision:    return "Distinct reflection entities produced the same runtime id";
+        case Error::RegistryFrozen:       return "Runtime registry is frozen because reflection queries have started";
         default:                          return "Unknown cmm::Error";
     }
 }
