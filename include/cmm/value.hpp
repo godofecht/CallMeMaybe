@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdlib>
 #include <memory>
 #include <new>
 #include <type_traits>
@@ -31,28 +32,39 @@ struct ValueOps {
 };
 
 template <typename T>
-inline constexpr ValueOps value_ops = {
-    [](void* ptr) {
-        if constexpr (UseSBO<T>) {
-            static_cast<T*>(ptr)->~T();
-        } else {
-            delete static_cast<T*>(ptr);
-        }
-    },
-    [](const void* src, void* inline_buffer) -> void* {
-        if constexpr (UseSBO<T>) {
-            return new (inline_buffer) T(*static_cast<const T*>(src));
-        } else {
-            return new T(*static_cast<const T*>(src));
-        }
-    },
-    [](void* src, void* inline_buffer) -> void* {
-        if constexpr (UseSBO<T>) {
-            return new (inline_buffer) T(std::move(*static_cast<T*>(src)));
-        } else {
-            return src;
-        }
+void destroy_value(void* ptr) {
+    if constexpr (UseSBO<T>) {
+        static_cast<T*>(ptr)->~T();
+    } else {
+        delete static_cast<T*>(ptr);
     }
+}
+
+template <typename T>
+void* copy_value(const void* src, void* inline_buffer) {
+    if constexpr (!std::is_copy_constructible_v<T>) {
+        return nullptr;
+    } else if constexpr (UseSBO<T>) {
+        return new (inline_buffer) T(*static_cast<const T*>(src));
+    } else {
+        return new T(*static_cast<const T*>(src));
+    }
+}
+
+template <typename T>
+void* move_value(void* src, void* inline_buffer) {
+    if constexpr (UseSBO<T>) {
+        return new (inline_buffer) T(std::move(*static_cast<T*>(src)));
+    } else {
+        return src;
+    }
+}
+
+template <typename T>
+inline constexpr ValueOps value_ops = {
+    &destroy_value<T>,
+    std::is_copy_constructible_v<T> ? &copy_value<T> : nullptr,
+    &move_value<T>
 };
 
 inline constexpr ValueOps ref_ops = {
@@ -77,9 +89,6 @@ public:
     template <typename T, typename Decayed = std::decay_t<T>>
     requires (!std::is_same_v<Decayed, Value>)
     explicit Value(T&& val) {
-        static_assert(std::is_copy_constructible_v<Decayed>,
-            "cmm::Value currently requires copy-constructible owned types.");
-
         type_id_ = cmm::detail::hash_entity(^^Decayed);
         policy_ = Policy::Owned;
         ops_ = &detail::value_ops<Decayed>;
@@ -132,8 +141,11 @@ public:
 
     Value& operator=(const Value& other) {
         if (this != &other) {
-            reset();
-            copy_from(other);
+            Value replacement;
+            if (other.try_copy_to(replacement) != cmm::Error::Success) {
+                std::abort();
+            }
+            *this = std::move(replacement);
         }
         return *this;
     }
@@ -151,9 +163,33 @@ public:
     Policy policy() const { return policy_; }
     cmm::info type_id() const { return type_id_; }
     bool has_value() const { return data_ != nullptr; }
+    bool is_copyable() const noexcept {
+        return !data_ || !ops_ || ops_->copy != nullptr;
+    }
 
-    // Raw inspection is always const. Callers that genuinely need mutation
-    // must ask for it explicitly; ConstRef values cannot yield mutable storage.
+    cmm::Error try_copy_to(Value& out) const {
+        if (!data_) {
+            out.reset();
+            return cmm::Error::Success;
+        }
+        if (!ops_ || !ops_->copy) {
+            return cmm::Error::NonCopyableValue;
+        }
+
+        Value replacement;
+        replacement.type_id_ = type_id_;
+        replacement.policy_ = policy_;
+        replacement.ops_ = ops_;
+        replacement.is_inline_ = is_inline_;
+        replacement.data_ = ops_->copy(data_, replacement.buffer_);
+        if (!replacement.data_) {
+            return cmm::Error::NonCopyableValue;
+        }
+
+        out = std::move(replacement);
+        return cmm::Error::Success;
+    }
+
     const void* data() const noexcept { return data_; }
     void* mutable_data() noexcept {
         if (policy_ == Policy::ConstRef) return nullptr;
@@ -190,7 +226,9 @@ public:
     }
 
     template <typename T>
-    cmm::Error try_get(T& out_val) const noexcept {
+    cmm::Error try_get(T& out_val) const noexcept
+        requires std::is_copy_assignable_v<T>
+    {
         const T* ptr = get_if<T>();
         if (!ptr) {
             return cmm::Error::TypeMismatch;
@@ -226,15 +264,8 @@ private:
     }
 
     void copy_from(const Value& other) {
-        type_id_ = other.type_id_;
-        policy_ = other.policy_;
-        ops_ = other.ops_;
-        is_inline_ = other.is_inline_;
-
-        if (other.data_ && ops_) {
-            data_ = ops_->copy(other.data_, buffer_);
-        } else {
-            data_ = nullptr;
+        if (other.try_copy_to(*this) != cmm::Error::Success) {
+            std::abort();
         }
     }
 
