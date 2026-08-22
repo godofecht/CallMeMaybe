@@ -63,7 +63,7 @@ public:
     template <std::meta::info EntityRefl>
     requires (is_registerable_entity(EntityRefl))
     cmm::Error register_entity() {
-        std::lock_guard<std::mutex> lock(registration_mutex_);
+        std::lock_guard<std::recursive_mutex> lock(registration_mutex_);
 
         if (frozen_.load(std::memory_order_acquire)) {
             return cmm::Error::RegistryFrozen;
@@ -92,9 +92,7 @@ public:
         }
 
         registering_.erase(id);
-        if (result == cmm::Error::Success) {
-            fully_registered_.insert(id);
-        }
+        if (result == cmm::Error::Success) fully_registered_.insert(id);
         return result;
     }
 
@@ -137,6 +135,28 @@ public:
         return std::visit([](auto&& arg) -> std::string_view { return arg.display_name(); }, it->second);
     }
 
+    cmm::Error adjust_instance_pointer(cmm::info actual_class_id,
+                                       cmm::info target_class_id,
+                                       const void* instance,
+                                       const void*& out) const {
+        freeze();
+        if (!instance) return cmm::Error::NullValue;
+        if (actual_class_id == target_class_id) {
+            out = instance;
+            return cmm::Error::Success;
+        }
+
+        const void* candidate = nullptr;
+        bool found = false;
+        bool ambiguous = false;
+        collect_base_adjustments(actual_class_id, target_class_id, instance,
+                                 candidate, found, ambiguous);
+        if (!found || ambiguous) return cmm::Error::InvalidArgumentType;
+
+        out = candidate;
+        return cmm::Error::Success;
+    }
+
 private:
     struct TransparentStringHash {
         using is_transparent = void;
@@ -146,7 +166,7 @@ private:
     };
 
     mutable std::atomic<bool> frozen_{false};
-    std::mutex registration_mutex_;
+    std::recursive_mutex registration_mutex_;
     std::unordered_map<cmm::info, EntityVariant> entity_registry_;
     std::unordered_map<std::string, cmm::info, TransparentStringHash, std::equal_to<>> top_level_entities_;
     std::unordered_set<cmm::info> fully_registered_;
@@ -156,13 +176,49 @@ private:
         frozen_.store(true, std::memory_order_release);
     }
 
+    void collect_base_adjustments(cmm::info current_class_id,
+                                  cmm::info target_class_id,
+                                  const void* current_instance,
+                                  const void*& candidate,
+                                  bool& found,
+                                  bool& ambiguous) const {
+        if (ambiguous) return;
+
+        auto class_it = entity_registry_.find(current_class_id);
+        if (class_it == entity_registry_.end()) return;
+        const auto* cls = std::get_if<Class>(&class_it->second);
+        if (!cls) return;
+
+        for (cmm::info base_id : cls->bases()) {
+            auto base_it = entity_registry_.find(base_id);
+            if (base_it == entity_registry_.end()) continue;
+            const auto* base = std::get_if<Base>(&base_it->second);
+            if (!base || !base->is_runtime_accessible()) continue;
+
+            const void* base_instance = base->upcast(current_instance);
+            if (!base_instance) continue;
+
+            if (base->type_id() == target_class_id) {
+                if (!found) {
+                    candidate = base_instance;
+                    found = true;
+                } else if (candidate != base_instance) {
+                    ambiguous = true;
+                    return;
+                }
+            } else {
+                collect_base_adjustments(base->type_id(), target_class_id,
+                                         base_instance, candidate, found, ambiguous);
+                if (ambiguous) return;
+            }
+        }
+    }
+
     void add_lookup_name(std::string_view name, cmm::info id) {
         if (name.empty()) return;
 
         auto [it, inserted] = top_level_entities_.emplace(std::string(name), id);
-        if (!inserted && it->second != id) {
-            it->second = cmm::invalid_info;
-        }
+        if (!inserted && it->second != id) it->second = cmm::invalid_info;
     }
 
     template <typename EntityT>
@@ -274,15 +330,11 @@ private:
         Function func(std::meta::identifier_of(FuncRefl));
         func.set_display_name(std::meta::display_string_of(FuncRefl));
         if (cmm::Error err = register_function_signature<FuncRefl>(func, id);
-            err != cmm::Error::Success) {
-            return err;
-        }
+            err != cmm::Error::Success) return err;
         func.set_thunk(cmm::detail::create_thunk<FuncRefl>());
 
         if (cmm::Error err = insert_unique(id, std::move(func));
-            err != cmm::Error::Success) {
-            return err;
-        }
+            err != cmm::Error::Success) return err;
 
         add_lookup_name(std::meta::display_string_of(FuncRefl), id);
         add_lookup_name(std::meta::identifier_of(FuncRefl), id);
@@ -311,24 +363,18 @@ private:
     cmm::Error register_parameter(cmm::info func_id, Function& func, std::size_t idx) {
         constexpr std::meta::info p_type_refl = std::meta::type_of(ParamRefl);
         const cmm::info p_type_id = ensure_type_registered<p_type_refl>();
-
         constexpr std::meta::info p_decayed_refl = std::meta::remove_cvref(p_type_refl);
         const cmm::info p_decayed_id = ensure_type_registered<p_decayed_refl>();
 
         const cmm::info p_id = cmm::detail::hash_entity(ParamRefl);
         std::string_view p_name;
-        if constexpr (std::meta::has_identifier(ParamRefl)) {
-            p_name = std::meta::identifier_of(ParamRefl);
-        }
+        if constexpr (std::meta::has_identifier(ParamRefl)) p_name = std::meta::identifier_of(ParamRefl);
 
         Parameter p(p_name, p_type_id, func_id, idx);
         p.set_display_name(std::meta::display_string_of(ParamRefl));
         p.set_decayed_type_id(p_decayed_id);
 
-        if (cmm::Error err = insert_unique(p_id, std::move(p));
-            err != cmm::Error::Success) {
-            return err;
-        }
+        if (cmm::Error err = insert_unique(p_id, std::move(p)); err != cmm::Error::Success) return err;
         func.add_parameter_id(p_id);
         return cmm::Error::Success;
     }
@@ -343,8 +389,7 @@ private:
         var.set_display_name(std::meta::display_string_of(VarRefl));
         var.set_is_const(is_const);
 
-        constexpr void* var_address =
-            const_cast<void*>(static_cast<const void*>(&[:VarRefl:]));
+        constexpr void* var_address = const_cast<void*>(static_cast<const void*>(&[:VarRefl:]));
         var.set_address(var_address);
 
         using VarT = std::remove_cvref_t<typename[:var_type_refl:]>;
@@ -356,11 +401,7 @@ private:
             var.set_setter_thunk(&cmm::detail::StaticThunks<VarT>::set);
         }
 
-        if (cmm::Error err = insert_unique(var_id, std::move(var));
-            err != cmm::Error::Success) {
-            return err;
-        }
-
+        if (cmm::Error err = insert_unique(var_id, std::move(var)); err != cmm::Error::Success) return err;
         add_lookup_name(std::meta::display_string_of(VarRefl), var_id);
         add_lookup_name(std::meta::identifier_of(VarRefl), var_id);
         return cmm::Error::Success;
@@ -386,9 +427,7 @@ private:
             en.set_display_name(std::meta::display_string_of(enumerator));
             en.set_parent_id(enum_id);
             result = insert_unique(enumerator_id, std::move(en));
-            if (result == cmm::Error::Success) {
-                e.add_enumerator(enumerator_name, val, enumerator_id);
-            }
+            if (result == cmm::Error::Success) e.add_enumerator(enumerator_name, val, enumerator_id);
         }
 
         if (result != cmm::Error::Success) return result;
@@ -407,14 +446,23 @@ private:
             if (result != cmm::Error::Success) continue;
 
             constexpr std::meta::info base_type_refl = std::meta::type_of(base);
+            result = register_entity<base_type_refl>();
+            if (result != cmm::Error::Success) continue;
+
             const cmm::info base_type_id = ensure_type_registered<base_type_refl>();
             const cmm::info base_id = cmm::detail::hash_entity(base);
 
             Base base_entity(std::meta::display_string_of(base_type_refl), base_type_id, class_id);
             base_entity.set_display_name(std::meta::display_string_of(base));
             base_entity.set_is_virtual(std::meta::is_virtual(base));
+
             if constexpr (std::meta::is_public(base)) {
                 base_entity.set_access(Access::Public);
+                using DerivedT = typename[:ClassRefl:];
+                using BaseT = typename[:base_type_refl:];
+                base_entity.set_upcast_thunk(+[](const void* instance) -> const void* {
+                    return static_cast<const BaseT*>(static_cast<const DerivedT*>(instance));
+                });
             } else if constexpr (std::meta::is_protected(base)) {
                 base_entity.set_access(Access::Protected);
             } else {
@@ -422,24 +470,16 @@ private:
             }
 
             result = insert_unique(base_id, std::move(base_entity));
-            if (result == cmm::Error::Success) {
-                cls.add_base(base_id);
-            }
+            if (result == cmm::Error::Success) cls.add_base(base_id);
         }
 
         template for (constexpr std::meta::info member : std::define_static_array(
                           std::meta::members_of(ClassRefl, std::meta::access_context::unchecked()))) {
             if (result != cmm::Error::Success) continue;
-
-            if constexpr (!cmm::is_reflectable(member) && !std::meta::is_destructor(member)) {
-                CMM_REG_LOG("  (skipped) Not reflectable: " << std::meta::display_string_of(member) << "\n");
-                continue;
-            }
+            if constexpr (!cmm::is_reflectable(member) && !std::meta::is_destructor(member)) continue;
 
             const cmm::info member_id = cmm::detail::hash_entity(member);
-            if constexpr (std::meta::has_identifier(member)) {
-                cls.add_member_name(std::meta::identifier_of(member), member_id);
-            }
+            if constexpr (std::meta::has_identifier(member)) cls.add_member_name(std::meta::identifier_of(member), member_id);
             cls.add_member(member_id);
 
             if constexpr (std::meta::is_nonstatic_data_member(member)) {
@@ -489,15 +529,13 @@ private:
             } else if constexpr (std::meta::is_function(member)) {
                 constexpr bool is_static = std::meta::is_static_member(member);
                 std::string_view fn_name;
-                if constexpr (std::meta::has_identifier(member)) {
-                    fn_name = std::meta::identifier_of(member);
-                } else {
-                    fn_name = std::meta::display_string_of(member);
-                }
+                if constexpr (std::meta::has_identifier(member)) fn_name = std::meta::identifier_of(member);
+                else fn_name = std::meta::display_string_of(member);
 
                 Function fn(fn_name, true, is_static);
                 fn.set_display_name(std::meta::display_string_of(member));
                 fn.set_parent_id(class_id);
+                if constexpr (!is_static) fn.set_is_const_member_function(std::meta::is_const(member));
                 result = register_function_signature<member>(fn, member_id);
                 if (result == cmm::Error::Success) {
                     fn.set_thunk(cmm::detail::create_thunk<member>());
@@ -515,8 +553,7 @@ private:
                 dm.set_parent_id(class_id);
                 dm.set_is_const(is_const);
 
-                constexpr void* mem_address =
-                    const_cast<void*>(static_cast<const void*>(&[:member:]));
+                constexpr void* mem_address = const_cast<void*>(static_cast<const void*>(&[:member:]));
                 dm.set_address(mem_address);
 
                 using MemT = std::remove_cvref_t<typename[:mem_type_refl:]>;
