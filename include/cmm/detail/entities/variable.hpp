@@ -37,9 +37,7 @@ public:
     }
 
     cmm::Error set_value(const Value& value) const {
-        if (is_const_ || is_constexpr_) {
-            return cmm::Error::ConstViolation;
-        }
+        if (is_const_) return cmm::Error::ConstViolation;
         if (!address_) return cmm::Error::NullValue;
         if (!setter_) return cmm::Error::ThunkNotInitialized;
 
@@ -49,19 +47,11 @@ public:
     cmm::info type_id() const { return type_id_; }
 
     const void* address() const { return address_; }
-    void* mutable_address() const {
-        return (is_const_ || is_constexpr_) ? nullptr : address_;
-    }
+    void* mutable_address() const { return is_const_ ? nullptr : address_; }
     void set_address(void* ptr) { address_ = ptr; }
 
     bool is_const() const { return is_const_; }
     void set_is_const(bool c) { is_const_ = c; }
-
-    bool is_constexpr() const { return is_constexpr_; }
-    void set_is_constexpr(bool ce) { is_constexpr_ = ce; }
-
-    cmm::info parent_namespace_id() const { return parent_namespace_id_; }
-    void set_parent_namespace_id(cmm::info id) { parent_namespace_id_ = id; }
 
     void set_getter_thunk(VariableGetterFn fn) { getter_ = fn; }
     void set_ref_getter_thunk(VariableRefGetterFn fn) { ref_getter_ = fn; }
@@ -70,11 +60,7 @@ public:
 private:
     cmm::info type_id_{cmm::invalid_info};
     void* address_{nullptr};
-
     bool is_const_{false};
-    bool is_constexpr_{false};
-
-    cmm::info parent_namespace_id_{cmm::invalid_info};
 
     VariableGetterFn getter_{nullptr};
     VariableRefGetterFn ref_getter_{nullptr};
