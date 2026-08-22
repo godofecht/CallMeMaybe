@@ -86,11 +86,8 @@ template <typename T>
 struct PropertyThunks {
     static Value get(const void* inst, std::ptrdiff_t offset) {
         const T& value = *reinterpret_cast<const T*>(static_cast<const char*>(inst) + offset);
-        if constexpr (std::is_copy_constructible_v<T>) {
-            return Value(value);
-        } else {
-            return Value::cref(value);
-        }
+        if constexpr (std::is_copy_constructible_v<T>) return Value(value);
+        return Value::cref(value);
     }
     static Value get_ref(void* inst, std::ptrdiff_t offset) {
         return Value::ref(*reinterpret_cast<T*>(static_cast<char*>(inst) + offset));
@@ -114,11 +111,8 @@ template <typename T>
 struct StaticThunks {
     static Value get(const void* address) {
         const T& value = *reinterpret_cast<const T*>(address);
-        if constexpr (std::is_copy_constructible_v<T>) {
-            return Value(value);
-        } else {
-            return Value::cref(value);
-        }
+        if constexpr (std::is_copy_constructible_v<T>) return Value(value);
+        return Value::cref(value);
     }
     static Value get_ref(void* address) {
         return Value::ref(*reinterpret_cast<T*>(address));
@@ -140,11 +134,13 @@ struct StaticThunks {
 
 template <std::meta::info FuncRefl>
 InvokerFn create_thunk() {
-    return [](std::span<Value> args, Value& out) -> cmm::Error {
+    return [](std::span<Value> args, Value& out,
+              const void* instance_override) -> cmm::Error {
         static constexpr auto params = std::define_static_array(std::meta::parameters_of(FuncRefl));
         constexpr std::size_t num_params = params.size();
         constexpr bool is_member = std::meta::is_class_member(FuncRefl) &&
                                    !std::meta::is_static_member(FuncRefl);
+        constexpr bool is_const_member = is_member && std::meta::is_const(FuncRefl);
         constexpr std::size_t arg_offset = is_member ? 1 : 0;
 
         if (args.size() != num_params + arg_offset) {
@@ -152,33 +148,38 @@ InvokerFn create_thunk() {
         }
 
         if constexpr (is_member) {
-            constexpr cmm::info expected_instance_type = cmm::detail::hash_entity(
-                std::meta::add_pointer(std::meta::parent_of(FuncRefl))
-            );
-            if (args[0].type_id() != expected_instance_type) {
+            constexpr cmm::info declaring_type = cmm::detail::hash_entity(std::meta::parent_of(FuncRefl));
+            if (!instance_override && args[0].pointee_type_id() != declaring_type) {
                 return cmm::Error::InvalidArgumentType;
             }
-
-            auto* instance_ptr = *static_cast<typename[:std::meta::parent_of(FuncRefl):]* const*>(args[0].data());
-            if (!instance_ptr) {
+            if (args[0].pointee_is_const() && !is_const_member) {
+                return cmm::Error::ConstViolation;
+            }
+            if (!(instance_override ? instance_override : args[0].object_pointer())) {
                 return cmm::Error::NullValue;
             }
         }
 
         return []<std::size_t... Is>(std::span<Value> args, Value& out,
+                                     const void* instance_override,
                                      std::index_sequence<Is...>) -> cmm::Error {
             bool args_valid = (is_argument_valid<std::meta::type_of(params[Is])>(
                                    args[Is + arg_offset]) && ...);
-            if (!args_valid) {
-                return cmm::Error::InvalidArgumentType;
-            }
+            if (!args_valid) return cmm::Error::InvalidArgumentType;
 
             auto do_invoke = [&]() -> decltype(auto) {
                 if constexpr (is_member) {
                     using ClassType = typename[:std::meta::parent_of(FuncRefl):];
-                    auto* instance_ptr = *static_cast<ClassType* const*>(args[0].data());
-                    return std::invoke(&[:FuncRefl:], instance_ptr,
-                        extract_argument<std::meta::type_of(params[Is])>(args[Is + 1])...);
+                    const void* raw = instance_override ? instance_override : args[0].object_pointer();
+                    if constexpr (is_const_member) {
+                        const auto* instance_ptr = static_cast<const ClassType*>(raw);
+                        return std::invoke(&[:FuncRefl:], instance_ptr,
+                            extract_argument<std::meta::type_of(params[Is])>(args[Is + 1])...);
+                    } else {
+                        auto* instance_ptr = static_cast<ClassType*>(const_cast<void*>(raw));
+                        return std::invoke(&[:FuncRefl:], instance_ptr,
+                            extract_argument<std::meta::type_of(params[Is])>(args[Is + 1])...);
+                    }
                 } else {
                     return std::invoke([:FuncRefl:],
                         extract_argument<std::meta::type_of(params[Is])>(args[Is])...);
@@ -204,26 +205,22 @@ InvokerFn create_thunk() {
             }
 
             return cmm::Error::Success;
-        }(args, out, std::make_index_sequence<num_params>{});
+        }(args, out, instance_override, std::make_index_sequence<num_params>{});
     };
 }
 
 template <std::meta::info ConstructorRefl>
 InvokerFn create_constructor_thunk() {
-    return [](std::span<Value> args, Value& out) -> cmm::Error {
+    return [](std::span<Value> args, Value& out, const void*) -> cmm::Error {
         static constexpr auto params = std::define_static_array(std::meta::parameters_of(ConstructorRefl));
         constexpr std::size_t num_params = params.size();
 
-        if (args.size() != num_params) {
-            return cmm::Error::InvalidArgumentCount;
-        }
+        if (args.size() != num_params) return cmm::Error::InvalidArgumentCount;
 
         return []<std::size_t... Is>(std::span<Value> args, Value& out,
                                      std::index_sequence<Is...>) -> cmm::Error {
             bool args_valid = (is_argument_valid<std::meta::type_of(params[Is])>(args[Is]) && ...);
-            if (!args_valid) {
-                return cmm::Error::InvalidArgumentType;
-            }
+            if (!args_valid) return cmm::Error::InvalidArgumentType;
 
             using ClassType = typename[:std::meta::parent_of(ConstructorRefl):];
             out = Value(new ClassType(
@@ -235,25 +232,20 @@ InvokerFn create_constructor_thunk() {
 
 template <std::meta::info DestructorRefl>
 InvokerFn create_destructor_thunk() {
-    return [](std::span<Value> args, Value& out) -> cmm::Error {
-        if (args.size() != 1) {
-            return cmm::Error::InvalidArgumentCount;
-        }
+    return [](std::span<Value> args, Value& out, const void*) -> cmm::Error {
+        if (args.size() != 1) return cmm::Error::InvalidArgumentCount;
 
         using ClassType = typename[:std::meta::parent_of(DestructorRefl):];
-        constexpr cmm::info expected_type = cmm::detail::hash_entity(
-            std::meta::add_pointer(std::meta::parent_of(DestructorRefl))
-        );
-        if (args[0].type_id() != expected_type) {
+        constexpr cmm::info expected_type = cmm::detail::hash_entity(std::meta::parent_of(DestructorRefl));
+        if (args[0].pointee_type_id() != expected_type) {
             return cmm::Error::InvalidArgumentType;
         }
+        if (args[0].pointee_is_const()) return cmm::Error::ConstViolation;
 
-        auto* instance_ptr = *static_cast<ClassType* const*>(args[0].data());
-        if (!instance_ptr) {
-            return cmm::Error::NullValue;
-        }
+        const void* raw = args[0].object_pointer();
+        if (!raw) return cmm::Error::NullValue;
 
-        delete instance_ptr;
+        delete static_cast<ClassType*>(const_cast<void*>(raw));
         out = Value{};
         return cmm::Error::Success;
     };
