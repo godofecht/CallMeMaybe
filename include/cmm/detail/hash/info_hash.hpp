@@ -8,70 +8,128 @@
 #include "cmm/info.hpp"
 
 namespace cmm {
-
 namespace detail {
 
-// FNV-1a 64-bit hash
-// Creates a new hash or updates an existing hash with a new string value
-// Available compile-time / runtime
-constexpr cmm::info hash_string(std::string_view str, cmm::info hash = 0xcbf29ce484222325) {
-    for (char c : str) {
+// FNV-1a 64-bit hash. Runtime handles remain compact, but the input identity
+// now includes entity kind and ownership so unrelated entities cannot alias
+// merely because they share a type and identifier.
+constexpr cmm::info hash_string(std::string_view str,
+                                cmm::info hash = 0xcbf29ce484222325ULL) {
+    for (unsigned char c : str) {
         hash ^= static_cast<cmm::info>(c);
-        hash *= 0x100000001b3;
+        hash *= 0x100000001b3ULL;
     }
     return hash;
 }
 
-// Canonicalization helper to strip aliases.
-// keep CV/Refs so that int, const int, and int& hash differently. This
-// preserves signature fidelity (e.g. an int& out-parameter stays distinct
-// from a by-value int); display_string_of already spells these uniquely.
+constexpr cmm::info hash_integer(std::uint64_t value,
+                                 cmm::info hash = 0xcbf29ce484222325ULL) {
+    for (unsigned int byte = 0; byte < sizeof(value); ++byte) {
+        hash ^= static_cast<cmm::info>(value & 0xffU);
+        hash *= 0x100000001b3ULL;
+        value >>= 8U;
+    }
+    return hash;
+}
+
+// Strip aliases while preserving cv/ref qualification. Runtime invocation
+// needs int, const int, int&, etc. to remain distinct metadata types.
 consteval std::meta::info canonicalize_type(std::meta::info type_info) {
     std::meta::info t = type_info;
     std::meta::info prev;
-    
-    // Keep collapsing typedefs / using-aliases until we hit the real type
+
     do {
         prev = t;
         if (std::meta::is_type_alias(t)) {
             t = std::meta::dealias(t);
         }
     } while (t != prev);
-    
+
     return t;
 }
 
-// Accepts any std::meta::info and generates the canonical FNV-1a hash
-consteval cmm::info hash_entity(std::meta::info entity) {
-    // Types, cvref qualifiers intact
-    if (std::meta::is_type(entity)) {
-        return hash_string(std::meta::display_string_of(canonicalize_type(entity)));
+consteval cmm::info hash_entity(std::meta::info entity);
+
+consteval cmm::info hash_parameter(std::meta::info entity) {
+    const std::meta::info parent = std::meta::parent_of(entity);
+    cmm::info hash = hash_string("parameter:", hash_entity(parent));
+
+    std::size_t index = 0;
+    for (const std::meta::info parameter : std::meta::parameters_of(parent)) {
+        if (parameter == entity) {
+            hash = hash_integer(index, hash);
+            hash = hash_string(":type:", hash);
+            return hash_entity(std::meta::type_of(entity)) ^ hash;
+        }
+        ++index;
     }
 
-    // Functions (also works for constructors, destructors, and operators)
+    // Defensive fallback for compiler implementations that fail to surface the
+    // parameter through parameters_of(). This remains parent-scoped.
+    if (std::meta::has_identifier(entity)) {
+        hash = hash_string(std::meta::identifier_of(entity), hash);
+    }
+    return hash_string(std::meta::display_string_of(std::meta::type_of(entity)), hash);
+}
+
+// Accepts any std::meta::info and generates a parent-aware runtime identity.
+consteval cmm::info hash_entity(std::meta::info entity) {
+    if (std::meta::is_type(entity)) {
+        cmm::info hash = hash_string("type:");
+        return hash_string(std::meta::display_string_of(canonicalize_type(entity)), hash);
+    }
+
     if (std::meta::is_function(entity)
         || std::meta::is_constructor(entity)
         || std::meta::is_destructor(entity)) {
-        return hash_string(std::meta::display_string_of(entity));
+        cmm::info hash = hash_string("function:");
+        return hash_string(std::meta::display_string_of(entity), hash);
     }
 
-    // Remaining named entities (data members, parameters, variables, enumerators)
-    // Combine the canonical type hash with the identifier
-    cmm::info type_hash = hash_string(
-        std::meta::display_string_of(canonicalize_type(std::meta::type_of(entity))));
+    if (std::meta::is_function_parameter(entity)) {
+        return hash_parameter(entity);
+    }
+
+    if (std::meta::is_enumerator(entity)) {
+        cmm::info hash = hash_string("enumerator:", hash_entity(std::meta::parent_of(entity)));
+        if (std::meta::has_identifier(entity)) {
+            return hash_string(std::meta::identifier_of(entity), hash);
+        }
+        return hash_string(std::meta::display_string_of(entity), hash);
+    }
+
+    if (std::meta::is_class_member(entity)) {
+        cmm::info hash = hash_string("member:", hash_entity(std::meta::parent_of(entity)));
+        if (std::meta::has_identifier(entity)) {
+            hash = hash_string(std::meta::identifier_of(entity), hash);
+        } else {
+            hash = hash_string(std::meta::display_string_of(entity), hash);
+        }
+
+        if (std::meta::is_variable(entity) || std::meta::is_nonstatic_data_member(entity)) {
+            hash = hash_string(":type:", hash);
+            hash ^= hash_entity(std::meta::type_of(entity));
+        }
+        return hash;
+    }
+
+    if (std::meta::is_variable(entity)) {
+        cmm::info hash = hash_string("variable:");
+        hash = hash_string(std::meta::display_string_of(entity), hash);
+        hash = hash_string(":type:", hash);
+        return hash ^ hash_entity(std::meta::type_of(entity));
+    }
+
+    cmm::info hash = hash_string("entity:");
     if (std::meta::has_identifier(entity)) {
-        return hash_string(std::meta::identifier_of(entity), type_hash);
+        hash = hash_string(std::meta::identifier_of(entity), hash);
+    } else {
+        hash = hash_string(std::meta::display_string_of(entity), hash);
     }
-    return type_hash;
-
-    // NOTE: gcc display string includes namespaces, etc... but this function
-    //  will lead to hash collisions with the old experimental clang.
-    // The workaround would be to traverse entities manually, traverse parent namespaces
-    //  etc to mangle them into the final hash, but this is unique in gcc and looks really nice
+    return hash;
 }
 
 } // namespace detail
-
 } // namespace cmm
 
 #endif // CALLMEMAYBE_INFO_HASH_HPP
