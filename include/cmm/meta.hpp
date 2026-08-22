@@ -66,7 +66,8 @@ inline std::string_view identifier_of(cmm::info i) {
 }
 
 inline std::string_view display_string_of(cmm::info i) {
-    return identifier_of(i);
+    if (!detail::valid(i)) return {};
+    return detail::Registry::instance().get_entity_display_name(i);
 }
 
 inline cmm::info type_of(cmm::info i) {
@@ -75,7 +76,8 @@ inline cmm::info type_of(cmm::info i) {
         using T = std::decay_t<decltype(arg)>;
         if constexpr (std::is_same_v<T, detail::DataMember> ||
                       std::is_same_v<T, detail::Parameter> ||
-                      std::is_same_v<T, detail::Variable>) {
+                      std::is_same_v<T, detail::Variable> ||
+                      std::is_same_v<T, detail::Base>) {
             return arg.type_id();
         } else if constexpr (std::is_same_v<T, detail::Enumerator>) {
             return arg.parent_id();
@@ -94,7 +96,8 @@ inline cmm::info parent_of(cmm::info i) {
         if constexpr (std::is_same_v<T, detail::DataMember> ||
                       std::is_same_v<T, detail::Function> ||
                       std::is_same_v<T, detail::Enumerator> ||
-                      std::is_same_v<T, detail::Parameter>) {
+                      std::is_same_v<T, detail::Parameter> ||
+                      std::is_same_v<T, detail::Base>) {
             return arg.parent_id();
         } else {
             return invalid_info;
@@ -160,6 +163,31 @@ inline std::span<const cmm::info> bases_view_of(cmm::info i) {
 inline std::vector<cmm::info> bases_of(cmm::info i) {
     auto view = bases_view_of(i);
     return {view.begin(), view.end()};
+}
+
+inline bool is_base(cmm::info i) {
+    if (!detail::valid(i)) return false;
+    return std::holds_alternative<detail::Base>(detail::Registry::instance().get_entity(i));
+}
+
+inline bool is_virtual_base(cmm::info i) {
+    if (!is_base(i)) return false;
+    return std::get<detail::Base>(detail::Registry::instance().get_entity(i)).is_virtual();
+}
+
+inline bool is_public_base(cmm::info i) {
+    if (!is_base(i)) return false;
+    return std::get<detail::Base>(detail::Registry::instance().get_entity(i)).access() == detail::Access::Public;
+}
+
+inline bool is_protected_base(cmm::info i) {
+    if (!is_base(i)) return false;
+    return std::get<detail::Base>(detail::Registry::instance().get_entity(i)).access() == detail::Access::Protected;
+}
+
+inline bool is_private_base(cmm::info i) {
+    if (!is_base(i)) return false;
+    return std::get<detail::Base>(detail::Registry::instance().get_entity(i)).access() == detail::Access::Private;
 }
 
 inline std::vector<cmm::info> enumerators_of(cmm::info i) {
@@ -257,6 +285,15 @@ inline std::size_t offset_of(cmm::info i) {
     std::size_t value = 0;
     (void)try_offset_of(i, value);
     return value;
+}
+
+inline std::size_t bit_offset_of(cmm::info i) {
+    if (!detail::valid(i)) return 0;
+    auto& entity = detail::Registry::instance().get_entity(i);
+    if (auto* dm = std::get_if<detail::DataMember>(&entity)) {
+        return static_cast<std::size_t>(dm->offset_bits());
+    }
+    return 0;
 }
 
 inline bool is_function(cmm::info i) {
@@ -416,6 +453,13 @@ inline cmm::info get_constructor(cmm::info class_id) {
         }
         if (match) return m;
     }
+    return invalid_info;
+}
+
+inline cmm::info get_destructor(cmm::info class_id) {
+    if (!detail::valid(class_id)) return invalid_info;
+    auto& entity = detail::Registry::instance().get_entity(class_id);
+    if (auto* cls = std::get_if<detail::Class>(&entity)) return cls->destructor();
     return invalid_info;
 }
 
