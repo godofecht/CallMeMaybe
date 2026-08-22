@@ -34,11 +34,8 @@ struct ValueOps {
 
 template <typename T>
 void destroy_value(void* ptr) {
-    if constexpr (UseSBO<T>) {
-        static_cast<T*>(ptr)->~T();
-    } else {
-        delete static_cast<T*>(ptr);
-    }
+    if constexpr (UseSBO<T>) static_cast<T*>(ptr)->~T();
+    else delete static_cast<T*>(ptr);
 }
 
 template <typename T>
@@ -54,11 +51,8 @@ void* copy_value(const void* src, void* inline_buffer) {
 
 template <typename T>
 void* move_value(void* src, void* inline_buffer) {
-    if constexpr (UseSBO<T>) {
-        return new (inline_buffer) T(std::move(*static_cast<T*>(src)));
-    } else {
-        return src;
-    }
+    if constexpr (UseSBO<T>) return new (inline_buffer) T(std::move(*static_cast<T*>(src)));
+    return src;
 }
 
 template <typename T>
@@ -68,9 +62,8 @@ const void* object_pointer_value(const void* src) {
                   !std::is_volatile_v<std::remove_pointer_t<T>>) {
         const T pointer = *static_cast<const T*>(src);
         return static_cast<const void*>(pointer);
-    } else {
-        return nullptr;
     }
+    return nullptr;
 }
 
 template <typename T>
@@ -120,13 +113,17 @@ public:
 
     template <typename T>
     static Value ref(T& val) {
-        using Decayed = std::decay_t<T>;
-        Value v;
-        v.template initialize_type_metadata<Decayed>();
-        v.policy_ = Policy::MutRef;
-        v.data_ = static_cast<void*>(std::addressof(val));
-        v.ops_ = &detail::ref_ops<Decayed>;
-        return v;
+        if constexpr (std::is_const_v<T>) {
+            return cref(val);
+        } else {
+            using Decayed = std::decay_t<T>;
+            Value v;
+            v.template initialize_type_metadata<Decayed>();
+            v.policy_ = Policy::MutRef;
+            v.data_ = static_cast<void*>(std::addressof(val));
+            v.ops_ = &detail::ref_ops<Decayed>;
+            return v;
+        }
     }
 
     template <typename T>
@@ -158,9 +155,7 @@ public:
     Value& operator=(const Value& other) {
         if (this != &other) {
             Value replacement;
-            if (other.try_copy_to(replacement) != cmm::Error::Success) {
-                std::abort();
-            }
+            if (other.try_copy_to(replacement) != cmm::Error::Success) std::abort();
             *this = std::move(replacement);
         }
         return *this;
@@ -181,18 +176,14 @@ public:
     cmm::info pointee_type_id() const { return pointee_type_id_; }
     bool pointee_is_const() const { return pointee_is_const_; }
     bool has_value() const { return data_ != nullptr; }
-    bool is_copyable() const noexcept {
-        return !data_ || !ops_ || ops_->copy != nullptr;
-    }
+    bool is_copyable() const noexcept { return !data_ || !ops_ || ops_->copy != nullptr; }
 
     cmm::Error try_copy_to(Value& out) const {
         if (!data_) {
             out.reset();
             return cmm::Error::Success;
         }
-        if (!ops_ || !ops_->copy) {
-            return cmm::Error::NonCopyableValue;
-        }
+        if (!ops_ || !ops_->copy) return cmm::Error::NonCopyableValue;
 
         Value replacement;
         replacement.type_id_ = type_id_;
@@ -202,9 +193,7 @@ public:
         replacement.ops_ = ops_;
         replacement.is_inline_ = is_inline_;
         replacement.data_ = ops_->copy(data_, replacement.buffer_);
-        if (!replacement.data_) {
-            return cmm::Error::NonCopyableValue;
-        }
+        if (!replacement.data_) return cmm::Error::NonCopyableValue;
 
         out = std::move(replacement);
         return cmm::Error::Success;
@@ -223,13 +212,10 @@ public:
     T* get_if() noexcept {
         using Decayed = std::decay_t<T>;
         constexpr cmm::info req_id = cmm::detail::hash_entity(^^Decayed);
-
         if (req_id != type_id_ || !data_) return nullptr;
-
         if constexpr (!std::is_const_v<T>) {
             if (policy_ == Policy::ConstRef) return nullptr;
         }
-
         return static_cast<Decayed*>(data_);
     }
 
@@ -237,7 +223,6 @@ public:
     const T* get_if() const noexcept {
         using Decayed = std::decay_t<T>;
         constexpr cmm::info req_id = cmm::detail::hash_entity(^^Decayed);
-
         if (req_id != type_id_ || !data_) return nullptr;
         return static_cast<const Decayed*>(data_);
     }
@@ -303,9 +288,8 @@ private:
         is_inline_ = other.is_inline_;
 
         if (other.data_ && ops_) {
-            if (is_inline_) {
-                data_ = ops_->move(other.data_, buffer_);
-            } else {
+            if (is_inline_) data_ = ops_->move(other.data_, buffer_);
+            else {
                 data_ = other.data_;
                 other.data_ = nullptr;
             }
