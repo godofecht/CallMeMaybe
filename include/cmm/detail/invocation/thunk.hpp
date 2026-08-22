@@ -65,7 +65,6 @@ decltype(auto) extract_argument(cmm::Value& value) {
     }
 }
 
-// Property access thunks
 template <typename T>
 struct PropertyThunks {
     static Value get(const void* inst, std::ptrdiff_t offset) {
@@ -74,7 +73,7 @@ struct PropertyThunks {
     static Value get_ref(void* inst, std::ptrdiff_t offset) {
         return Value::ref(*reinterpret_cast<T*>(static_cast<char*>(inst) + offset));
     }
-    static Value get_cref(const void* inst, std::ptrdiff_t offset) {
+    static Value get_cref(void* inst, std::ptrdiff_t offset) {
         return Value::cref(*reinterpret_cast<const T*>(static_cast<const char*>(inst) + offset));
     }
     static cmm::Error set(void* inst, std::ptrdiff_t offset, const Value& val) {
@@ -93,7 +92,7 @@ struct StaticThunks {
     static Value get_ref(void* address) {
         return Value::ref(*reinterpret_cast<T*>(address));
     }
-    static Value get_cref(const void* address) {
+    static Value get_cref(void* address) {
         return Value::cref(*reinterpret_cast<const T*>(address));
     }
     static cmm::Error set(void* address, const Value& val) {
