@@ -49,14 +49,10 @@ namespace detail {
     Value make_argument_value(T&& value) {
         using Raw = std::remove_reference_t<T>;
         if constexpr (std::is_lvalue_reference_v<T&&>) {
-            if constexpr (std::is_const_v<Raw>) {
-                return Value::cref(value);
-            } else {
-                return Value::ref(value);
-            }
-        } else {
-            return Value(std::forward<T>(value));
+            if constexpr (std::is_const_v<Raw>) return Value::cref(value);
+            return Value::ref(value);
         }
+        return Value(std::forward<T>(value));
     }
 } // namespace detail
 
@@ -83,9 +79,8 @@ inline cmm::info type_of(cmm::info i) {
             return arg.parent_id();
         } else if constexpr (std::is_base_of_v<detail::Type, T>) {
             return i;
-        } else {
-            return invalid_info;
         }
+        return invalid_info;
     });
 }
 
@@ -99,9 +94,8 @@ inline cmm::info parent_of(cmm::info i) {
                       std::is_same_v<T, detail::Parameter> ||
                       std::is_same_v<T, detail::Base>) {
             return arg.parent_id();
-        } else {
-            return invalid_info;
         }
+        return invalid_info;
     });
 }
 
@@ -109,11 +103,8 @@ inline cmm::info underlying_type(cmm::info i) {
     if (!detail::valid(i)) return invalid_info;
     return detail::visit_entity(i, [](auto&& arg) -> cmm::info {
         using T = std::decay_t<decltype(arg)>;
-        if constexpr (std::is_base_of_v<detail::Type, T>) {
-            return arg.underlying_type_id();
-        } else {
-            return invalid_info;
-        }
+        if constexpr (std::is_base_of_v<detail::Type, T>) return arg.underlying_type_id();
+        return invalid_info;
     });
 }
 
@@ -196,9 +187,7 @@ inline std::vector<cmm::info> enumerators_of(cmm::info i) {
     if (auto* e = std::get_if<detail::Enum>(&entity)) {
         std::vector<cmm::info> result;
         result.reserve(e->enumerators().size());
-        for (const auto& entry : e->enumerators()) {
-            result.push_back(entry.entity_id);
-        }
+        for (const auto& entry : e->enumerators()) result.push_back(entry.entity_id);
         return result;
     }
     return {};
@@ -311,6 +300,11 @@ inline bool is_destructor(cmm::info i) {
     return std::get<detail::Function>(detail::Registry::instance().get_entity(i)).is_destructor();
 }
 
+inline bool is_const_member_function(cmm::info i) {
+    if (!is_function(i)) return false;
+    return std::get<detail::Function>(detail::Registry::instance().get_entity(i)).is_const_member_function();
+}
+
 inline bool is_static_member(cmm::info i) {
     if (!detail::valid(i)) return false;
     return detail::visit_entity(i, [](auto&& arg) -> bool {
@@ -376,14 +370,32 @@ CMM_DEFINE_TYPE_PREDICATE(is_unsigned_type,         is_unsigned)
 #undef CMM_DEFINE_TYPE_PREDICATE
 
 inline cmm::Error reflect_invoke(cmm::info target, std::span<Value> args, Value& out) {
-    if (!detail::valid(target)) {
-        return cmm::Error::EntityNotFound;
-    }
+    if (!detail::valid(target)) return cmm::Error::EntityNotFound;
+
     auto& entity = detail::Registry::instance().get_entity(target);
-    if (auto* func = std::get_if<detail::Function>(&entity)) {
-        return func->invoke(args, out);
+    auto* func = std::get_if<detail::Function>(&entity);
+    if (!func) return cmm::Error::NotInvocable;
+
+    if (func->is_member_function() && !func->is_static_function() &&
+        !func->is_constructor() && !func->is_destructor()) {
+        if (args.empty()) return cmm::Error::InvalidArgumentCount;
+        if (args[0].pointee_type_id() == cmm::invalid_info) return cmm::Error::InvalidArgumentType;
+        if (args[0].pointee_is_const() && !func->is_const_member_function()) {
+            return cmm::Error::ConstViolation;
+        }
+
+        const void* instance = args[0].object_pointer();
+        if (!instance) return cmm::Error::NullValue;
+
+        const void* adjusted = nullptr;
+        cmm::Error adjust = detail::Registry::instance().adjust_instance_pointer(
+            args[0].pointee_type_id(), func->parent_id(), instance, adjusted);
+        if (adjust != cmm::Error::Success) return adjust;
+
+        return func->invoke(args, out, adjusted);
     }
-    return cmm::Error::NotInvocable;
+
+    return func->invoke(args, out);
 }
 
 template <typename Ret = Value, typename... Args>
@@ -400,9 +412,7 @@ inline decltype(auto) invoke(cmm::info target, Args&&... args) {
         err = reflect_invoke(target, {}, result);
     }
 
-    if (err != cmm::Error::Success) {
-        std::abort();
-    }
+    if (err != cmm::Error::Success) std::abort();
 
     if constexpr (std::is_same_v<Ret, Value>) {
         return Value(std::move(result));
@@ -412,7 +422,7 @@ inline decltype(auto) invoke(cmm::info target, Args&&... args) {
         using Base = std::remove_reference_t<Ret>;
         return static_cast<Ret>(result.template get<Base>());
     } else {
-        return Ret(result.template get<Ret>());
+        return Ret(std::move(result.template get<Ret>()));
     }
 }
 
@@ -421,10 +431,7 @@ namespace lookup {
 inline cmm::info get_member(cmm::info class_id, std::string_view name) {
     if (!detail::valid(class_id)) return invalid_info;
     auto& entity = detail::Registry::instance().get_entity(class_id);
-
-    if (auto* cls = std::get_if<detail::Class>(&entity)) {
-        return cls->get_member_by_name(name);
-    }
+    if (auto* cls = std::get_if<detail::Class>(&entity)) return cls->get_member_by_name(name);
     return invalid_info;
 }
 
@@ -435,7 +442,6 @@ inline cmm::info get_constructor(cmm::info class_id) {
 
     for (cmm::info m : members_view_of(class_id)) {
         if (!is_constructor(m)) continue;
-
         auto params = parameters_view_of(m);
         if (params.size() != N) continue;
 
@@ -466,22 +472,86 @@ inline cmm::info get_destructor(cmm::info class_id) {
 inline std::string_view enum_to_string(cmm::info enum_type_id, std::int64_t value) {
     if (!detail::valid(enum_type_id)) return {};
     auto& entity = detail::Registry::instance().get_entity(enum_type_id);
-    if (auto* e = std::get_if<detail::Enum>(&entity)) {
-        return e->get_name_by_value(value);
-    }
+    if (auto* e = std::get_if<detail::Enum>(&entity)) return e->get_name_by_value(value);
     return {};
 }
 
 inline bool string_to_enum(cmm::info enum_type_id, std::string_view name, std::int64_t& out_value) {
     if (!detail::valid(enum_type_id)) return false;
     auto& entity = detail::Registry::instance().get_entity(enum_type_id);
-    if (auto* e = std::get_if<detail::Enum>(&entity)) {
-        return e->get_value_by_name(name, out_value);
-    }
+    if (auto* e = std::get_if<detail::Enum>(&entity)) return e->get_value_by_name(name, out_value);
     return false;
 }
 
 } // namespace lookup
+
+class DynamicObject {
+public:
+    DynamicObject() = default;
+
+    DynamicObject(Value pointer, cmm::info destructor)
+        : pointer_(std::move(pointer)), destructor_(destructor) {}
+
+    DynamicObject(const DynamicObject&) = delete;
+    DynamicObject& operator=(const DynamicObject&) = delete;
+
+    DynamicObject(DynamicObject&& other) noexcept
+        : pointer_(std::move(other.pointer_)), destructor_(other.destructor_) {
+        other.destructor_ = cmm::invalid_info;
+    }
+
+    DynamicObject& operator=(DynamicObject&& other) noexcept {
+        if (this != &other) {
+            destroy();
+            pointer_ = std::move(other.pointer_);
+            destructor_ = other.destructor_;
+            other.destructor_ = cmm::invalid_info;
+        }
+        return *this;
+    }
+
+    ~DynamicObject() { destroy(); }
+
+    explicit operator bool() const { return pointer_.has_value(); }
+
+    template <typename T>
+    T* get() {
+        if (!pointer_.has_value()) return nullptr;
+        return pointer_.template get<T*>();
+    }
+
+    template <typename T>
+    T* release() {
+        T* result = get<T>();
+        pointer_ = Value{};
+        destructor_ = cmm::invalid_info;
+        return result;
+    }
+
+private:
+    void destroy() noexcept {
+        if (!pointer_.has_value() || destructor_ == cmm::invalid_info) return;
+
+        Value ignored;
+        std::span<Value> args(&pointer_, 1);
+        if (reflect_invoke(destructor_, args, ignored) != cmm::Error::Success) std::abort();
+        pointer_ = Value{};
+        destructor_ = cmm::invalid_info;
+    }
+
+    Value pointer_;
+    cmm::info destructor_{cmm::invalid_info};
+};
+
+template <typename... Args>
+DynamicObject construct(cmm::info class_id, Args&&... args) {
+    cmm::info constructor = lookup::get_constructor<Args...>(class_id);
+    cmm::info destructor = lookup::get_destructor(class_id);
+    if (constructor == cmm::invalid_info || destructor == cmm::invalid_info) std::abort();
+
+    Value pointer = invoke(constructor, std::forward<Args>(args)...);
+    return DynamicObject(std::move(pointer), destructor);
+}
 
 } // namespace cmm
 
