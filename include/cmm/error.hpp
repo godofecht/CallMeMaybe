@@ -15,7 +15,8 @@ enum class Error {
     ThunkNotInitialized,
     ConstViolation,
     StaticMismatch,
-    BitFieldUnsupported
+    BitFieldUnsupported,
+    EntityIdCollision
 };
 
 inline const char* to_string(Error err) noexcept {
@@ -32,6 +33,7 @@ inline const char* to_string(Error err) noexcept {
         case Error::ConstViolation:       return "Attempted to modify a const or constexpr entity";
         case Error::StaticMismatch:       return "Static/non-static member access mismatch";
         case Error::BitFieldUnsupported:  return "Bit-fields are not supported for dynamic access";
+        case Error::EntityIdCollision:    return "Distinct reflection entities produced the same runtime id";
         default:                          return "Unknown cmm::Error";
     }
 }
