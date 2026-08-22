@@ -29,6 +29,7 @@ struct ValueOps {
     void (*destroy)(void* ptr);
     void* (*copy)(const void* src, void* inline_buffer);
     void* (*move)(void* src, void* inline_buffer);
+    const void* (*object_pointer)(const void* src);
 };
 
 template <typename T>
@@ -61,16 +62,31 @@ void* move_value(void* src, void* inline_buffer) {
 }
 
 template <typename T>
+const void* object_pointer_value(const void* src) {
+    if constexpr (std::is_pointer_v<T> &&
+                  std::is_object_v<std::remove_cv_t<std::remove_pointer_t<T>>> &&
+                  !std::is_volatile_v<std::remove_pointer_t<T>>) {
+        const T pointer = *static_cast<const T*>(src);
+        return static_cast<const void*>(pointer);
+    } else {
+        return nullptr;
+    }
+}
+
+template <typename T>
 inline constexpr ValueOps value_ops = {
     &destroy_value<T>,
     std::is_copy_constructible_v<T> ? &copy_value<T> : nullptr,
-    &move_value<T>
+    &move_value<T>,
+    &object_pointer_value<T>
 };
 
+template <typename T>
 inline constexpr ValueOps ref_ops = {
     [](void*) {},
     [](const void* src, void*) -> void* { return const_cast<void*>(src); },
-    [](void* src, void*) -> void* { return src; }
+    [](void* src, void*) -> void* { return src; },
+    &object_pointer_value<T>
 };
 
 } // namespace detail
@@ -89,7 +105,7 @@ public:
     template <typename T, typename Decayed = std::decay_t<T>>
     requires (!std::is_same_v<Decayed, Value>)
     explicit Value(T&& val) {
-        type_id_ = cmm::detail::hash_entity(^^Decayed);
+        initialize_type_metadata<Decayed>();
         policy_ = Policy::Owned;
         ops_ = &detail::value_ops<Decayed>;
 
@@ -106,10 +122,10 @@ public:
     static Value ref(T& val) {
         using Decayed = std::decay_t<T>;
         Value v;
-        v.type_id_ = cmm::detail::hash_entity(^^Decayed);
+        v.template initialize_type_metadata<Decayed>();
         v.policy_ = Policy::MutRef;
         v.data_ = static_cast<void*>(std::addressof(val));
-        v.ops_ = &detail::ref_ops;
+        v.ops_ = &detail::ref_ops<Decayed>;
         return v;
     }
 
@@ -117,10 +133,10 @@ public:
     static Value cref(const T& val) {
         using Decayed = std::decay_t<T>;
         Value v;
-        v.type_id_ = cmm::detail::hash_entity(^^Decayed);
+        v.template initialize_type_metadata<Decayed>();
         v.policy_ = Policy::ConstRef;
         v.data_ = const_cast<void*>(static_cast<const void*>(std::addressof(val)));
-        v.ops_ = &detail::ref_ops;
+        v.ops_ = &detail::ref_ops<Decayed>;
         return v;
     }
 
@@ -128,10 +144,10 @@ public:
     static Value rref(T&& val) {
         using Decayed = std::decay_t<T>;
         Value v;
-        v.type_id_ = cmm::detail::hash_entity(^^Decayed);
+        v.template initialize_type_metadata<Decayed>();
         v.policy_ = Policy::RvalueRef;
         v.data_ = static_cast<void*>(std::addressof(val));
-        v.ops_ = &detail::ref_ops;
+        v.ops_ = &detail::ref_ops<Decayed>;
         return v;
     }
 
@@ -162,6 +178,8 @@ public:
 
     Policy policy() const { return policy_; }
     cmm::info type_id() const { return type_id_; }
+    cmm::info pointee_type_id() const { return pointee_type_id_; }
+    bool pointee_is_const() const { return pointee_is_const_; }
     bool has_value() const { return data_ != nullptr; }
     bool is_copyable() const noexcept {
         return !data_ || !ops_ || ops_->copy != nullptr;
@@ -178,6 +196,8 @@ public:
 
         Value replacement;
         replacement.type_id_ = type_id_;
+        replacement.pointee_type_id_ = pointee_type_id_;
+        replacement.pointee_is_const_ = pointee_is_const_;
         replacement.policy_ = policy_;
         replacement.ops_ = ops_;
         replacement.is_inline_ = is_inline_;
@@ -191,6 +211,9 @@ public:
     }
 
     const void* data() const noexcept { return data_; }
+    const void* object_pointer() const noexcept {
+        return data_ && ops_ && ops_->object_pointer ? ops_->object_pointer(data_) : nullptr;
+    }
     void* mutable_data() noexcept {
         if (policy_ == Policy::ConstRef) return nullptr;
         return data_;
@@ -201,14 +224,10 @@ public:
         using Decayed = std::decay_t<T>;
         constexpr cmm::info req_id = cmm::detail::hash_entity(^^Decayed);
 
-        if (req_id != type_id_ || !data_) {
-            return nullptr;
-        }
+        if (req_id != type_id_ || !data_) return nullptr;
 
         if constexpr (!std::is_const_v<T>) {
-            if (policy_ == Policy::ConstRef) {
-                return nullptr;
-            }
+            if (policy_ == Policy::ConstRef) return nullptr;
         }
 
         return static_cast<Decayed*>(data_);
@@ -219,9 +238,7 @@ public:
         using Decayed = std::decay_t<T>;
         constexpr cmm::info req_id = cmm::detail::hash_entity(^^Decayed);
 
-        if (req_id != type_id_ || !data_) {
-            return nullptr;
-        }
+        if (req_id != type_id_ || !data_) return nullptr;
         return static_cast<const Decayed*>(data_);
     }
 
@@ -230,9 +247,7 @@ public:
         requires std::is_copy_assignable_v<T>
     {
         const T* ptr = get_if<T>();
-        if (!ptr) {
-            return cmm::Error::TypeMismatch;
-        }
+        if (!ptr) return cmm::Error::TypeMismatch;
         out_val = *ptr;
         return cmm::Error::Success;
     }
@@ -252,25 +267,37 @@ public:
     }
 
 private:
-    void reset() {
-        if (data_ && ops_) {
-            ops_->destroy(data_);
+    template <typename T>
+    void initialize_type_metadata() {
+        type_id_ = cmm::detail::hash_entity(^^T);
+        if constexpr (std::is_pointer_v<T> &&
+                      !std::is_void_v<std::remove_pointer_t<T>> &&
+                      !std::is_function_v<std::remove_pointer_t<T>>) {
+            using Pointee = std::remove_pointer_t<T>;
+            pointee_type_id_ = cmm::detail::hash_entity(^^std::remove_cv_t<Pointee>);
+            pointee_is_const_ = std::is_const_v<Pointee>;
         }
+    }
+
+    void reset() {
+        if (data_ && ops_) ops_->destroy(data_);
         data_ = nullptr;
         ops_ = nullptr;
         type_id_ = cmm::invalid_info;
+        pointee_type_id_ = cmm::invalid_info;
+        pointee_is_const_ = false;
         policy_ = Policy::Owned;
         is_inline_ = false;
     }
 
     void copy_from(const Value& other) {
-        if (other.try_copy_to(*this) != cmm::Error::Success) {
-            std::abort();
-        }
+        if (other.try_copy_to(*this) != cmm::Error::Success) std::abort();
     }
 
     void move_from(Value&& other) noexcept {
         type_id_ = other.type_id_;
+        pointee_type_id_ = other.pointee_type_id_;
+        pointee_is_const_ = other.pointee_is_const_;
         policy_ = other.policy_;
         ops_ = other.ops_;
         is_inline_ = other.is_inline_;
@@ -289,8 +316,10 @@ private:
     }
 
     cmm::info type_id_{cmm::invalid_info};
+    cmm::info pointee_type_id_{cmm::invalid_info};
     Policy policy_{Policy::Owned};
     void* data_{nullptr};
+    bool pointee_is_const_{false};
 
     const detail::ValueOps* ops_{nullptr};
     bool is_inline_{false};
