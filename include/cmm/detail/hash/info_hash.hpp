@@ -81,7 +81,8 @@ consteval void append_qualified_name(std::meta::info entity,
                                      std::string& result) {
     if (std::meta::is_namespace_member(entity) ||
         std::meta::is_class_member(entity) ||
-        std::meta::is_enumerator(entity)) {
+        std::meta::is_enumerator(entity) ||
+        std::meta::is_type_alias(entity)) {
         const std::meta::info parent = std::meta::parent_of(entity);
         if (parent != ^^::) {
             append_qualified_name(parent, result);
@@ -99,6 +100,24 @@ consteval void append_qualified_name(std::meta::info entity,
 consteval const char* qualified_name_of(std::meta::info entity) {
     std::string result;
     append_qualified_name(entity, result);
+    return std::define_static_string(result);
+}
+
+consteval const char* qualified_display_name_of(std::meta::info entity) {
+    std::string result;
+
+    if (std::meta::is_namespace_member(entity) ||
+        std::meta::is_class_member(entity) ||
+        std::meta::is_enumerator(entity) ||
+        std::meta::is_type_alias(entity)) {
+        const std::meta::info parent = std::meta::parent_of(entity);
+        if (parent != ^^::) {
+            append_qualified_name(parent, result);
+            if (!result.empty()) result += "::";
+        }
+    }
+
+    result += std::meta::display_string_of(entity);
     return std::define_static_string(result);
 }
 
@@ -175,6 +194,10 @@ consteval cmm::info hash_clang_type(std::meta::info type,
 
 consteval cmm::info hash_clang_entity(std::meta::info entity,
                                      cmm::info hash) {
+    if (std::meta::is_type_alias(entity)) {
+        return hash_clang_qualified_name(entity, hash_string("type-alias:", hash));
+    }
+
     if (std::meta::is_type(entity)) {
         return hash_clang_type(entity, hash_string("type:", hash));
     }
@@ -208,10 +231,26 @@ consteval cmm::info hash_clang_entity(std::meta::info entity,
 
 #endif
 
+consteval std::string_view runtime_display_name_of(std::meta::info entity) {
+#if defined(__clang__)
+    return qualified_display_name_of(entity);
+#else
+    return std::meta::display_string_of(entity);
+#endif
+}
+
 consteval cmm::info hash_entity(std::meta::info entity) {
 #if defined(__clang__)
     return hash_clang_entity(entity, 0xcbf29ce484222325ULL);
 #else
+    if (std::meta::is_type_alias(entity)) {
+        cmm::info hash = hash_string("type-alias:", hash_entity(std::meta::parent_of(entity)));
+        if (std::meta::has_identifier(entity)) {
+            return hash_string(std::meta::identifier_of(entity), hash);
+        }
+        return hash_string(std::meta::display_string_of(entity), hash);
+    }
+
     if (std::meta::is_type(entity)) {
         cmm::info hash = hash_string("type:");
         return hash_string(std::meta::display_string_of(canonicalize_type(entity)), hash);
