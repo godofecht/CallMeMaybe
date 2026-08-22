@@ -5,14 +5,18 @@
 
 namespace cmm {
 
-struct reflectable_t { };
+struct reflectable_t {
+    friend constexpr bool operator==(reflectable_t, reflectable_t) = default;
+};
 
-// Tag members with [[=cmm::reflectable]] to have them be registered for refleciton
-// Otherwise, they will be ignored
 inline constexpr reflectable_t reflectable{};
 
 consteval bool is_reflectable(std::meta::info entity) {
+#if defined(__clang__)
+    return !std::meta::annotations_of(entity, ^^reflectable_t).empty();
+#else
     return !std::meta::annotations_of_with_type(entity, ^^reflectable_t).empty();
+#endif
 }
 
 } // namespace cmm
