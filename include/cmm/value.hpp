@@ -13,15 +13,9 @@
 #include "cmm/info.hpp"
 #include "cmm/detail/hash/info_hash.hpp"
 
-/*
-Tries to mirror std::any and other reflection libraries as much as possible to not reinvent the wheel, 
-but uses internal cmm::info type hash to avoid rtti
-*/
-
 namespace cmm {
 namespace detail {
 
-// Small Buffer Optimization metrics
 inline constexpr std::size_t SBO_SIZE = 32;
 inline constexpr std::size_t SBO_ALIGN = alignof(std::max_align_t);
 
@@ -30,7 +24,6 @@ inline constexpr bool UseSBO = (sizeof(T) <= SBO_SIZE) &&
                                (alignof(T) <= SBO_ALIGN) &&
                                std::is_nothrow_move_constructible_v<T>;
 
-// Type-erased operations vtable
 struct ValueOps {
     void (*destroy)(void* ptr);
     void* (*copy)(const void* src, void* inline_buffer);
@@ -57,12 +50,11 @@ inline constexpr ValueOps value_ops = {
         if constexpr (UseSBO<T>) {
             return new (inline_buffer) T(std::move(*static_cast<T*>(src)));
         } else {
-            return src; 
+            return src;
         }
     }
 };
 
-// Non-owning operations for reference / alias Values
 inline constexpr ValueOps ref_ops = {
     [](void*) {},
     [](const void* src, void*) -> void* { return const_cast<void*>(src); },
@@ -74,9 +66,10 @@ inline constexpr ValueOps ref_ops = {
 class Value {
 public:
     enum class Policy : uint8_t {
-        Owned, // Decayed value (owns memory)
-        MutRef, // Mutable reference alias
-        ConstRef // Const reference alias
+        Owned,
+        MutRef,
+        ConstRef,
+        RvalueRef
     };
 
     Value() = default;
@@ -84,13 +77,13 @@ public:
     template <typename T, typename Decayed = std::decay_t<T>>
     requires (!std::is_same_v<Decayed, Value>)
     explicit Value(T&& val) {
-        static_assert(std::is_copy_constructible_v<Decayed>, 
-            "cmm::Value requires copy-constructible types.");
+        static_assert(std::is_copy_constructible_v<Decayed>,
+            "cmm::Value currently requires copy-constructible owned types.");
 
         type_id_ = cmm::detail::hash_entity(^^Decayed);
         policy_ = Policy::Owned;
         ops_ = &detail::value_ops<Decayed>;
-        
+
         if constexpr (detail::UseSBO<Decayed>) {
             data_ = new (buffer_) Decayed(std::forward<T>(val));
             is_inline_ = true;
@@ -122,6 +115,17 @@ public:
         return v;
     }
 
+    template <typename T>
+    static Value rref(T&& val) {
+        using Decayed = std::decay_t<T>;
+        Value v;
+        v.type_id_ = cmm::detail::hash_entity(^^Decayed);
+        v.policy_ = Policy::RvalueRef;
+        v.data_ = static_cast<void*>(std::addressof(val));
+        v.ops_ = &detail::ref_ops;
+        return v;
+    }
+
     ~Value() { reset(); }
 
     Value(const Value& other) { copy_from(other); }
@@ -147,29 +151,30 @@ public:
     Policy policy() const { return policy_; }
     cmm::info type_id() const { return type_id_; }
     bool has_value() const { return data_ != nullptr; }
-    void* data() { return data_; }
-    const void* data() const { return data_; }
 
-    /*
-    Extraction APIs
-    */
+    // Raw inspection is always const. Callers that genuinely need mutation
+    // must ask for it explicitly; ConstRef values cannot yield mutable storage.
+    const void* data() const noexcept { return data_; }
+    void* mutable_data() noexcept {
+        if (policy_ == Policy::ConstRef) return nullptr;
+        return data_;
+    }
 
-    // Similar to std::get_if, returns nullptr on failure
     template <typename T>
     T* get_if() noexcept {
         using Decayed = std::decay_t<T>;
         constexpr cmm::info req_id = cmm::detail::hash_entity(^^Decayed);
-        
+
         if (req_id != type_id_ || !data_) {
             return nullptr;
         }
 
         if constexpr (!std::is_const_v<T>) {
             if (policy_ == Policy::ConstRef) {
-                return nullptr; 
+                return nullptr;
             }
         }
-        
+
         return static_cast<Decayed*>(data_);
     }
 
@@ -177,14 +182,13 @@ public:
     const T* get_if() const noexcept {
         using Decayed = std::decay_t<T>;
         constexpr cmm::info req_id = cmm::detail::hash_entity(^^Decayed);
-        
+
         if (req_id != type_id_ || !data_) {
             return nullptr;
         }
         return static_cast<const Decayed*>(data_);
     }
 
-    // Explicit Error Code getter - fills an out-parameter
     template <typename T>
     cmm::Error try_get(T& out_val) const noexcept {
         const T* ptr = get_if<T>();
@@ -195,7 +199,6 @@ public:
         return cmm::Error::Success;
     }
 
-    // Asserting Getter - for fast paths where you know for sure the type is correct
     template <typename T>
     T& get() {
         T* ptr = get_if<T>();
@@ -211,13 +214,6 @@ public:
     }
 
 private:
-    Value(void* existing_ptr, cmm::info type_id) {
-        type_id_ = type_id;
-        data_ = existing_ptr;
-        ops_ = &detail::ref_ops;
-        is_inline_ = false; 
-    }
-
     void reset() {
         if (data_ && ops_) {
             ops_->destroy(data_);
@@ -234,7 +230,7 @@ private:
         policy_ = other.policy_;
         ops_ = other.ops_;
         is_inline_ = other.is_inline_;
-        
+
         if (other.data_ && ops_) {
             data_ = ops_->copy(other.data_, buffer_);
         } else {
@@ -247,13 +243,13 @@ private:
         policy_ = other.policy_;
         ops_ = other.ops_;
         is_inline_ = other.is_inline_;
-        
+
         if (other.data_ && ops_) {
             if (is_inline_) {
                 data_ = ops_->move(other.data_, buffer_);
             } else {
                 data_ = other.data_;
-                other.data_ = nullptr; 
+                other.data_ = nullptr;
             }
         } else {
             data_ = nullptr;
@@ -264,8 +260,8 @@ private:
     cmm::info type_id_{cmm::invalid_info};
     Policy policy_{Policy::Owned};
     void* data_{nullptr};
-    
-    const detail::ValueOps* ops_{nullptr}; 
+
+    const detail::ValueOps* ops_{nullptr};
     bool is_inline_{false};
     alignas(detail::SBO_ALIGN) std::byte buffer_[detail::SBO_SIZE];
 };
