@@ -6,7 +6,7 @@
 int main()
 {
     const cmm::flow::GenerationResult generated =
-        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo>();
+        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum>();
     if (generated.error != cmm::Error::Success)
     {
         std::cerr << cmm::to_string(generated.error) << '\n';
@@ -17,6 +17,7 @@ int main()
     const std::string scale_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_scale>());
     const std::string not_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_not>());
     const std::string echo_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_echo>());
+    const std::string byte_sum_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_byte_sum>());
 
     std::cout << generated.source;
     std::cout << "extern {\n";
@@ -33,6 +34,9 @@ int main()
     std::cout << "    if not_result.error != 0 or not_result.value != false { return 13 }\n";
     std::cout << "    let echo_result = " << echo_name << "(\"call-me-maybe\")\n";
     std::cout << "    if echo_result.error != 0 or echo_result.value != \"call-me-maybe\" { return 14 }\n";
+    std::cout << "    let bytes: array<u8, 4> = [1, 2, 3, 4]\n";
+    std::cout << "    let byte_sum_result = " << byte_sum_name << "(bytes)\n";
+    std::cout << "    if byte_sum_result.error != 0 or byte_sum_result.value != 10 { return 15 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
     return 0;
