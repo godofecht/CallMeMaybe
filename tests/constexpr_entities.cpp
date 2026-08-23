@@ -3,6 +3,7 @@
 #include <string_view>
 #include <utility>
 
+#include "cmm/annotations.hpp"
 #include "cmm/detail/entities/base.hpp"
 #include "cmm/detail/entities/class.hpp"
 #include "cmm/detail/entities/data_member.hpp"
@@ -13,6 +14,23 @@
 #include "cmm/detail/entities/parameter.hpp"
 #include "cmm/detail/entities/type.hpp"
 #include "cmm/detail/entities/variable.hpp"
+#include "cmm/detail/static_class_metadata.hpp"
+#include "cmm/meta.hpp"
+
+struct StaticMetadataBase {
+    int base_value = 1;
+};
+
+struct StaticMetadataProbe : StaticMetadataBase {
+    [[=cmm::reflectable]] StaticMetadataProbe() = default;
+    [[=cmm::reflectable]] int value = 2;
+    [[=cmm::reflectable]] static int shared;
+    [[=cmm::reflectable]] int call(int input) { return input + value; }
+    [[=cmm::reflectable]] double call(double input) { return input + value; }
+    ~StaticMetadataProbe() = default;
+};
+
+int StaticMetadataProbe::shared = 3;
 
 constexpr bool constexpr_metadata_roundtrip()
 {
@@ -122,6 +140,19 @@ constexpr bool constexpr_metadata_roundtrip()
     if (class_type.get_member_by_name("value") != 201) return false;
     if (class_type.get_member_by_name("call") != cmm::invalid_info) return false;
     if (class_type.get_member_by_name("missing") != cmm::invalid_info) return false;
+
+    cmm::detail::Class generated("StaticMetadataProbe");
+    cmm::detail::StaticClassMetadata<^^StaticMetadataProbe>::apply(generated);
+    if (generated.nonstatic_data_members().size() != 1) return false;
+    if (generated.static_data_members().size() != 1) return false;
+    if (generated.functions().size() != 2) return false;
+    if (generated.constructors().size() != 1) return false;
+    if (generated.bases().size() != 1) return false;
+    if (generated.destructor() == cmm::invalid_info) return false;
+    if (generated.get_member_by_name("value") != cmm::get_id<^^StaticMetadataProbe::value>()) return false;
+    if (generated.get_member_by_name("shared") != cmm::get_id<^^StaticMetadataProbe::shared>()) return false;
+    if (generated.get_member_by_name("call") != cmm::invalid_info) return false;
+    if (generated.bases()[0] == cmm::get_id<^^StaticMetadataBase>()) return false;
 
     return true;
 }
