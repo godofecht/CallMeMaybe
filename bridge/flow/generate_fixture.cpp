@@ -36,7 +36,7 @@ int main()
     std::cout << "    if echo_result.error != 0 or echo_result.value != \"call-me-maybe\" { return 14 }\n";
     std::cout << "    let bytes: array<u8, 4> = [1, 2, 3, 4]\n";
     std::cout << "    let byte_sum_result = " << byte_sum_name << "(bytes)\n";
-    std::cout << "    if byte_sum_result.error != 0 { return 15 }\n";
+    std::cout << "    if byte_sum_result.error != 0 { return 20 + byte_sum_result.error }\n";
     std::cout << "    if byte_sum_result.value != 10 { return 16 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
