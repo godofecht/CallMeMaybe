@@ -7,7 +7,8 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from generate import render
+from generate import render as render_core
+from generate_shapes import render as render_shapes
 
 
 def run_command(command, cwd):
@@ -18,6 +19,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Compile and compare generated reflection corpora")
     parser.add_argument("--cases", type=int, default=32)
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--family", choices=["core", "shapes"], default="core")
     parser.add_argument(
         "--compiler",
         action="append",
@@ -37,12 +39,14 @@ def main() -> None:
         name, command = item.split("=", 1)
         compiler_specs.append((name, shlex.split(command)))
 
-    source = render(args.cases, args.seed)
-    source_path = args.output_dir / f"corpus-seed-{args.seed}.cpp"
+    renderer = render_core if args.family == "core" else render_shapes
+    source = renderer(args.cases, args.seed)
+    source_path = args.output_dir / f"corpus-{args.family}-seed-{args.seed}.cpp"
     source_path.write_text(source, encoding="utf-8")
 
     outputs = {}
     manifest = {
+        "family": args.family,
         "seed": args.seed,
         "cases": args.cases,
         "compilers": [],
@@ -52,7 +56,7 @@ def main() -> None:
         temp = Path(temp_dir)
 
         for name, compiler_command in compiler_specs:
-            binary = temp / f"corpus-{name}"
+            binary = temp / f"corpus-{args.family}-{name}"
             compile_command = [
                 *compiler_command,
                 str(source_path),
@@ -76,7 +80,7 @@ def main() -> None:
             if compiled.returncode != 0:
                 manifest["compilers"].append(compiler_record)
                 (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-                raise SystemExit(f"{name}: compilation failed")
+                raise SystemExit(f"{name}: compilation failed for {args.family} corpus")
 
             executed = run_command([str(binary)], repo_root)
             compiler_record["run_returncode"] = executed.returncode
@@ -88,7 +92,7 @@ def main() -> None:
 
             if executed.returncode != 0:
                 (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-                raise SystemExit(f"{name}: generated corpus failed its internal invariants")
+                raise SystemExit(f"{name}: generated {args.family} corpus failed its internal invariants")
 
             outputs[name] = executed.stdout
 
@@ -105,10 +109,10 @@ def main() -> None:
     (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
 
     if disagreements:
-        print(f"reflection disagreement: {reference_name} != {', '.join(disagreements)}")
+        print(f"reflection disagreement in {args.family}: {reference_name} != {', '.join(disagreements)}")
         return_code = 3
     else:
-        print(f"all {len(compiler_specs)} compiler fingerprint(s) agree for seed {args.seed}")
+        print(f"all {len(compiler_specs)} compiler fingerprint(s) agree for {args.family} seed {args.seed}")
         return_code = 0
 
     raise SystemExit(return_code)
