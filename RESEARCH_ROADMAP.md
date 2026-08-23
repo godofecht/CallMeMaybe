@@ -70,8 +70,8 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] span-backed constexpr Function parameter metadata with runtime-builder fallback
 - [x] span-backed constexpr Enum entry metadata preserving raw value/sign information
 - [x] compile-time static-assert regression across core, leaf, function and enum metadata
-- [ ] constexpr-capable Class aggregate storage
-- [ ] generated static class member/base/name spans
+- [x] constexpr-capable Class aggregate storage
+- [x] generated static class member/base/name spans
 - [ ] remove transitional runtime-owned Function/Enum fallback containers
 - [ ] dependency-stub / full-entity split
 - [ ] consteval entity/name indexes and non-templated runtime `RegistryView`
