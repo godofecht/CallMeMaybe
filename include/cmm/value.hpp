@@ -211,7 +211,7 @@ public:
     template <typename T>
     T* get_if() noexcept {
         using Decayed = std::decay_t<T>;
-        constexpr cmm::info req_id = cmm::detail::hash_entity(^^Decayed);
+        constexpr cmm::info req_id = cmm::detail::hash_entity(std::meta::decay(^^T));
         if (req_id != type_id_ || !data_) return nullptr;
         if constexpr (!std::is_const_v<T>) {
             if (policy_ == Policy::ConstRef) return nullptr;
@@ -222,7 +222,7 @@ public:
     template <typename T>
     const T* get_if() const noexcept {
         using Decayed = std::decay_t<T>;
-        constexpr cmm::info req_id = cmm::detail::hash_entity(^^Decayed);
+        constexpr cmm::info req_id = cmm::detail::hash_entity(std::meta::decay(^^T));
         if (req_id != type_id_ || !data_) return nullptr;
         return static_cast<const Decayed*>(data_);
     }
@@ -254,12 +254,15 @@ public:
 private:
     template <typename T>
     void initialize_type_metadata() {
-        type_id_ = cmm::detail::hash_entity(^^T);
+        constexpr std::meta::info type_refl = std::meta::decay(^^T);
+        type_id_ = cmm::detail::hash_entity(type_refl);
         if constexpr (std::is_pointer_v<T> &&
                       !std::is_void_v<std::remove_pointer_t<T>> &&
                       !std::is_function_v<std::remove_pointer_t<T>>) {
             using Pointee = std::remove_pointer_t<T>;
-            pointee_type_id_ = cmm::detail::hash_entity(^^std::remove_cv_t<Pointee>);
+            constexpr std::meta::info pointee_refl =
+                std::meta::remove_cv(std::meta::remove_pointer(type_refl));
+            pointee_type_id_ = cmm::detail::hash_entity(pointee_refl);
             pointee_is_const_ = std::is_const_v<Pointee>;
         }
     }
