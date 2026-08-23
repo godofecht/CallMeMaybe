@@ -27,6 +27,7 @@
 #include "cmm/detail/entities/type.hpp"
 #include "cmm/detail/entities/variable.hpp"
 #include "cmm/detail/invocation/thunk.hpp"
+#include "cmm/detail/static_function_enum_metadata.hpp"
 
 #ifdef CMM_ENABLE_REGISTRY_LOGS
     #define CMM_REG_LOG(x) do { std::cout << x; } while(0)
@@ -348,11 +349,12 @@ private:
             func.set_return_type_id(ensure_type_registered<ret_type_refl>());
         }
 
+        StaticFunctionMetadata<FuncRefl>::apply(func);
         std::size_t idx = 0;
         cmm::Error result = cmm::Error::Success;
         template for (constexpr std::meta::info p : std::define_static_array(std::meta::parameters_of(FuncRefl))) {
             if (result == cmm::Error::Success) {
-                result = register_parameter<FuncRefl, p>(func_id, func, idx);
+                result = register_parameter<FuncRefl, p>(func_id, idx);
             }
             ++idx;
         }
@@ -360,7 +362,7 @@ private:
     }
 
     template <std::meta::info FuncRefl, std::meta::info ParamRefl>
-    cmm::Error register_parameter(cmm::info func_id, Function& func, std::size_t idx) {
+    cmm::Error register_parameter(cmm::info func_id, std::size_t idx) {
         constexpr std::meta::info p_type_refl = std::meta::type_of(ParamRefl);
         const cmm::info p_type_id = ensure_type_registered<p_type_refl>();
         constexpr std::meta::info p_decayed_refl = std::meta::remove_cvref(p_type_refl);
@@ -374,9 +376,7 @@ private:
         p.set_display_name(std::meta::display_string_of(ParamRefl));
         p.set_decayed_type_id(p_decayed_id);
 
-        if (cmm::Error err = insert_unique(p_id, std::move(p)); err != cmm::Error::Success) return err;
-        func.add_parameter_id(p_id);
-        return cmm::Error::Success;
+        return insert_unique(p_id, std::move(p));
     }
 
     template <std::meta::info VarRefl>
@@ -414,20 +414,18 @@ private:
         auto& e = std::get<Enum>(entity_registry_.at(enum_id));
         constexpr std::meta::info underlying = std::meta::underlying_type(EnumRefl);
         e.set_underlying_type_id(ensure_type_registered<underlying>());
+        StaticEnumMetadata<EnumRefl>::apply(e);
 
+        std::size_t idx = 0;
         cmm::Error result = cmm::Error::Success;
         template for (constexpr std::meta::info enumerator : std::define_static_array(std::meta::enumerators_of(EnumRefl))) {
             if (result != cmm::Error::Success) continue;
 
-            const cmm::info enumerator_id = cmm::detail::hash_entity(enumerator);
-            const std::string_view enumerator_name = std::meta::identifier_of(enumerator);
-            const auto val = static_cast<std::int64_t>([:enumerator:]);
-
-            Enumerator en(enumerator_name, val);
+            const auto& entry = StaticEnumMetadata<EnumRefl>::entries[idx++];
+            Enumerator en(entry.name, entry.value_bits, entry.is_signed);
             en.set_display_name(std::meta::display_string_of(enumerator));
             en.set_parent_id(enum_id);
-            result = insert_unique(enumerator_id, std::move(en));
-            if (result == cmm::Error::Success) e.add_enumerator(enumerator_name, val, enumerator_id);
+            result = insert_unique(entry.entity_id, std::move(en));
         }
 
         if (result != cmm::Error::Success) return result;
