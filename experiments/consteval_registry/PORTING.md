@@ -1,0 +1,64 @@
+# Consteval Registry Port and Measurement Plan
+
+## Source experiment
+
+Upstream CallMeMaybe PR #1 (`LaurieWired/CallMeMaybe`, head `10c85912ed28433c31698670f42c89ae2c198979`) replaces the runtime singleton registry with a consteval-built registry and a non-templated runtime view. It changes 14 files, replacing dynamic registry containers and incremental member construction with constexpr-capable entities, static arrays and spans.
+
+This fork has since accumulated a large correctness stabilization pass. The consteval experiment must therefore be ported forward rather than copied wholesale.
+
+## Semantic contract that must survive the port
+
+The compile-time backend is not acceptable unless all of the following remain true:
+
+- declaring-parent identity participates in member IDs, so same-named members in different classes cannot collide
+- repeated function parameter types remain distinct by parameter position and parent function
+- distinct entities that hash to the same ID are detected instead of silently aliasing
+- dependency stubs can be promoted to fully registered entities regardless of registration order
+- enum parent metadata is correct and unsigned/high-bit enumerators preserve their representation
+- complete type predicates remain available through the runtime API
+- class member metadata preserves declaration order
+- overload lookup reports ambiguity rather than picking an arbitrary candidate
+- erased references preserve constness, cv/ref categories and aliasing
+- member invocation can adjust derived instances to accessible base subobjects and rejects ambiguous base paths
+- null instance handling remains explicit
+- destructor invocation remains supported
+- constructor lookup uses canonical reflected type identity and supports zero arguments without non-standard arrays
+- GCC 16.2 release tests and ASan/UBSan remain green
+- the installed CMake package remains usable
+
+## Performance questions
+
+The experiment is only interesting if it answers measurable questions. Compare the stabilized runtime registry and the consteval backend on the same entity corpus for:
+
+1. process startup before first user call
+2. explicit registration time removed from `main`
+3. first runtime lookup latency
+4. steady-state lookup latency
+5. dynamic invocation latency
+6. compile time
+7. peak compiler memory
+8. unstripped and stripped binary size
+9. runtime heap allocation before first lookup
+10. scaling at 10, 100, 1,000 and 10,000 reflected entities
+
+No performance claim should be made from a single shared-CI timing run. CI is for compilation and semantic equivalence; publishable timing data belongs in the benchmark result set with machine metadata.
+
+## Port sequence
+
+- [x] Inventory the upstream experiment and pin its exact head commit.
+- [x] Record the stabilized semantic contract that cannot regress.
+- [x] Define the benchmark dimensions that decide whether the architecture is worthwhile.
+- [ ] Introduce constexpr-capable entity storage without changing the public runtime API.
+- [ ] Replace incremental vector-backed member lists with stable spans over generated arrays.
+- [ ] Split dependency stubs from explicitly requested full entity materialization.
+- [ ] Build entity/name indexes during constant evaluation.
+- [ ] Expose a non-templated runtime `RegistryView` over constant-initialized storage.
+- [ ] Replace startup `register_rrefl` calls with an explicit compile-time build declaration.
+- [ ] Port every stabilization regression test to the new backend.
+- [ ] Run release and sanitizer CI on GCC 16.2.
+- [ ] Validate the current Clang/P2996 path or document a compiler-specific blocker with a minimal reproducer.
+- [ ] Feed both backends into the benchmark suite and commit the comparison results.
+
+## Upstream strategy
+
+If the port wins materially, the upstreamable result should be small enough to review as architecture rather than as a fork dump: semantic regressions get isolated tests, storage changes get a focused patch, and performance evidence is linked independently. If the consteval backend loses badly on compile time or binary size, that result is still worth publishing; the experiment should not be forced into a predetermined conclusion.
