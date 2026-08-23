@@ -15,9 +15,9 @@ double reflected_scale(double value, double gain) { return value * gain; }
 bool reflected_not(bool value) { return !value; }
 const char* reflected_echo(const char* value) { return value; }
 
-std::uint64_t reflected_byte_sum(std::span<const std::uint8_t> bytes)
+int reflected_byte_sum(std::span<const std::uint8_t> bytes)
 {
-    std::uint64_t sum = 0;
+    int sum = 0;
     for (std::uint8_t byte : bytes) sum += byte;
     return sum;
 }
@@ -90,14 +90,14 @@ int main()
     const cmm_flow_info byte_sum_id = cmm_flow_reflect_name("reflected_byte_sum");
     assert(byte_sum_id != cmm::invalid_info);
     assert(cmm_flow_parameter_kind(byte_sum_id, 0) == CMM_FLOW_BYTES);
-    assert(cmm_flow_return_kind(byte_sum_id) == CMM_FLOW_U64);
+    assert(cmm_flow_return_kind(byte_sum_id) == CMM_FLOW_I32);
     const cmm_flow_value bytes_arg = cmm_flow_bytes({bytes.data(), static_cast<int64_t>(bytes.size())});
     assert(bytes_arg.kind == CMM_FLOW_BYTES);
     assert(bytes_arg.extra == bytes.size());
     cmm_flow_value bytes_result{};
     assert(cmm_flow_invoke(byte_sum_id, &bytes_arg, 1, &bytes_result) == 0);
-    assert(bytes_result.kind == CMM_FLOW_U64);
-    assert(bytes_result.bits == 10);
+    assert(bytes_result.kind == CMM_FLOW_I32);
+    assert(static_cast<int32_t>(bytes_result.bits) == 10);
 
     cmm_flow_value bad_result{};
     assert(cmm_flow_invoke(add_id, &bool_arg, 1, &bad_result) == static_cast<int32_t>(cmm::Error::InvalidArgumentCount));
