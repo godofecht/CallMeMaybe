@@ -92,7 +92,7 @@ https://github.com/godofecht/CallMeMaybe/pull/6
 - [ ] consteval-registry comparison
 - [ ] Flow bridge binding-size / overhead result
 - [ ] final findings section
-- [ ] focused upstream candidate list
+- [x] focused upstream candidate list
 - [ ] concise Laurie-facing summary backed by reproducers and patches
 
 ## Exit criterion
