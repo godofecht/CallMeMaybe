@@ -1,4 +1,4 @@
-add_library(cmm_flow_bridge STATIC cmm_flow.cpp)
+add_library(cmm_flow_bridge STATIC cmm_flow.cpp cmm_flow_bits.cpp)
 add_library(CallMeMaybe::flow_bridge ALIAS cmm_flow_bridge)
 
 target_link_libraries(cmm_flow_bridge PUBLIC CallMeMaybe::cmm)
