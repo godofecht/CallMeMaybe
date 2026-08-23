@@ -3,7 +3,6 @@
 
 #include <span>
 #include <string_view>
-#include <vector>
 #include "cmm/error.hpp"
 #include "cmm/info.hpp"
 #include "cmm/detail/entities/entity.hpp"
@@ -48,15 +47,7 @@ public:
 
     constexpr void set_parent_id(cmm::info id) { parent_id_ = id; }
     constexpr void set_return_type_id(cmm::info id) { return_type_id_ = id; }
-
-    constexpr void set_parameter_ids(std::span<const cmm::info> ids) {
-        parameter_ids_ = ids;
-    }
-
-    void add_parameter_id(cmm::info id) {
-        owned_parameter_ids_.push_back(id);
-        parameter_ids_ = owned_parameter_ids_;
-    }
+    constexpr void set_parameter_ids(std::span<const cmm::info> ids) { parameter_ids_ = ids; }
 
     constexpr bool is_member_function() const { return flags_.is_member_function; }
     constexpr bool is_static_function() const { return flags_.is_static_function; }
@@ -73,7 +64,6 @@ private:
     FunctionFlags flags_{};
     cmm::info parent_id_{cmm::invalid_info};
     cmm::info return_type_id_{cmm::invalid_info};
-    std::vector<cmm::info> owned_parameter_ids_;
     std::span<const cmm::info> parameter_ids_{};
     InvokerFn thunk_{nullptr};
 };
