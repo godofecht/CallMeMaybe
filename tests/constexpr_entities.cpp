@@ -1,7 +1,10 @@
 #include <array>
 #include <cstdint>
+#include <string_view>
+#include <utility>
 
 #include "cmm/detail/entities/base.hpp"
+#include "cmm/detail/entities/class.hpp"
 #include "cmm/detail/entities/data_member.hpp"
 #include "cmm/detail/entities/entity.hpp"
 #include "cmm/detail/entities/enum.hpp"
@@ -89,6 +92,36 @@ constexpr bool constexpr_metadata_roundtrip()
     if (enum_bits != UINT64_C(0x8000000000000000) || enum_signed) return false;
     if (enum_type.get_name_by_value_bits(enum_bits) != "High") return false;
     if (enum_type.enumerators().size() != 2 || enum_type.enumerators()[1].entity_id != 106) return false;
+
+    const std::array<cmm::info, 4> class_members{201, 202, 203, 204};
+    const std::array<cmm::info, 1> class_nonstatic{201};
+    const std::array<cmm::info, 1> class_static{202};
+    const std::array<cmm::info, 1> class_functions{203};
+    const std::array<cmm::info, 1> class_constructors{204};
+    const std::array<cmm::info, 2> class_bases{205, 206};
+    const std::array<std::pair<std::string_view, cmm::info>, 3> class_names{{
+        {"value", 201},
+        {"call", cmm::invalid_info},
+        {"build", 204},
+    }};
+
+    cmm::detail::Class class_type("Widget");
+    class_type.set_members(class_members);
+    class_type.set_nonstatic_data_members(class_nonstatic);
+    class_type.set_static_data_members(class_static);
+    class_type.set_functions(class_functions);
+    class_type.set_constructors(class_constructors);
+    class_type.set_bases(class_bases);
+    class_type.set_destructor(207);
+    class_type.set_member_names(class_names);
+    if (!class_type.flags().is_class) return false;
+    if (class_type.members().size() != 4 || class_type.members()[2] != 203) return false;
+    if (class_type.nonstatic_data_members()[0] != 201 || class_type.static_data_members()[0] != 202) return false;
+    if (class_type.functions()[0] != 203 || class_type.constructors()[0] != 204) return false;
+    if (class_type.bases().size() != 2 || class_type.destructor() != 207) return false;
+    if (class_type.get_member_by_name("value") != 201) return false;
+    if (class_type.get_member_by_name("call") != cmm::invalid_info) return false;
+    if (class_type.get_member_by_name("missing") != cmm::invalid_info) return false;
 
     return true;
 }
