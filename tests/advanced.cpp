@@ -66,8 +66,19 @@ int main() {
     const cmm::info public_base_id = cmm::reflect_name("PublicBase");
     const cmm::info read_id = cmm::lookup::get_member(public_base_id, "read");
     const cmm::info write_id = cmm::lookup::get_member(public_base_id, "write");
-    std::cerr << "advanced stage: derived read\n";
-    if (!check(cmm::invoke<int>(read_id, &derived) == 17)) return 12;
+
+    std::array<cmm::Value, 1> read_args{cmm::Value(&derived)};
+    cmm::Value read_result;
+    const cmm::Error read_error = cmm::reflect_invoke(read_id, read_args, read_result);
+    if (read_error != cmm::Error::Success) {
+        std::cerr << "derived read error: " << cmm::to_string(read_error)
+                  << " instance_type=" << read_args[0].pointee_type_id()
+                  << " derived_type=" << derived_id
+                  << " parent_type=" << public_base_id << '\n';
+        return 12;
+    }
+    if (!check(read_result.get<int>() == 17)) return 12;
+
     std::cerr << "advanced stage: derived write\n";
     cmm::invoke<void>(write_id, &derived, 31);
     if (!check(derived.state == 31)) return 13;
