@@ -12,4 +12,7 @@ if(CMM_BUILD_TESTS)
     add_executable(cmm_flow_bridge_test test.cpp)
     target_link_libraries(cmm_flow_bridge_test PRIVATE CallMeMaybe::flow_bridge)
     add_test(NAME cmm_flow_bridge COMMAND cmm_flow_bridge_test)
+
+    add_executable(cmm_flow_generate_fixture generate_fixture.cpp)
+    target_link_libraries(cmm_flow_generate_fixture PRIVATE CallMeMaybe::flow_bridge)
 endif()
