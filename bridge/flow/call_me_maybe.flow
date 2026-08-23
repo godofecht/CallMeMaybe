@@ -29,8 +29,8 @@ struct CmmFlowValue {
 extern {
     function cmm_flow_reflect_name(name: string) -> u64
     function cmm_flow_parameter_count(function_id: u64) -> u64
-    function cmm_flow_parameter_kind(function_id: u64, index: u64) -> u32
     function cmm_flow_return_kind(function_id: u64) -> u32
+    function cmm_flow_parameter_kind(function_id: u64, index: u64) -> u32
     function cmm_flow_invoke(function_id: u64, arguments: ptr<CmmFlowValue>, argument_count: u64, result: ptr<CmmFlowValue>) -> i32
     function cmm_flow_error_string(error: i32) -> string
     function cmm_flow_f32_bits(value: f32) -> u64
@@ -86,6 +86,5 @@ export function cmm_as_bool(value: CmmFlowValue) -> bool { return value.bits != 
 export function cmm_as_string(value: CmmFlowValue) -> string { return cmm_flow_bits_string(value.bits) }
 
 export function cmm_as_byte_span(value: CmmFlowValue) -> span<u8> {
-    let data: ptr<u8> = cmm_flow_bits_u8_ptr(value.bits)
-    return data[0..value.extra as i64]
+    return cmm_flow_bits_u8_ptr(value.bits)[0..value.extra as i64]
 }
