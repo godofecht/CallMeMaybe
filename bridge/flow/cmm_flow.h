@@ -25,6 +25,7 @@ typedef enum cmm_flow_kind {
     CMM_FLOW_F64 = 11,
     CMM_FLOW_POINTER = 12,
     CMM_FLOW_STRING = 13,
+    CMM_FLOW_BYTES = 14,
     CMM_FLOW_UNSUPPORTED = 255
 } cmm_flow_kind;
 
@@ -32,7 +33,13 @@ typedef struct cmm_flow_value {
     uint32_t kind;
     uint32_t reserved;
     uint64_t bits;
+    uint64_t extra;
 } cmm_flow_value;
+
+typedef struct cmm_flow_span_u8 {
+    const uint8_t* data;
+    int64_t len;
+} cmm_flow_span_u8;
 
 cmm_flow_info cmm_flow_reflect_name(const char* name);
 uint64_t cmm_flow_parameter_count(cmm_flow_info function_id);
@@ -50,6 +57,8 @@ float cmm_flow_bits_f32(uint64_t bits);
 double cmm_flow_bits_f64(uint64_t bits);
 uint64_t cmm_flow_string_bits(const char* value);
 const char* cmm_flow_bits_string(uint64_t bits);
+cmm_flow_value cmm_flow_bytes(cmm_flow_span_u8 value);
+cmm_flow_span_u8 cmm_flow_as_bytes(cmm_flow_value value);
 
 #ifdef __cplusplus
 }
