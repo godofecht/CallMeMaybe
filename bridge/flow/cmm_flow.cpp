@@ -2,13 +2,15 @@
 
 #include <bit>
 #include <cstdint>
-#include <cstring>
+#include <span>
 #include <type_traits>
 #include <vector>
 
 #include "cmm/meta.hpp"
 
 namespace {
+
+using ByteSpan = std::span<const std::uint8_t>;
 
 template <typename T>
 bool is_type(cmm::info type_id)
@@ -47,6 +49,7 @@ uint32_t kind_of(cmm::info type_id)
     if (is_type<float>(type_id)) return CMM_FLOW_F32;
     if (is_type<double>(type_id)) return CMM_FLOW_F64;
     if (is_type<const char*>(type_id)) return CMM_FLOW_STRING;
+    if (is_type<ByteSpan>(type_id)) return CMM_FLOW_BYTES;
     if (cmm::is_pointer_type(type_id)) return CMM_FLOW_POINTER;
     if (cmm::is_integral_type(type_id))
     {
@@ -86,8 +89,7 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
 
     if (is_type<float>(expected_type))
     {
-        const uint32_t raw = static_cast<uint32_t>(input.bits);
-        output = cmm::Value(std::bit_cast<float>(raw));
+        output = cmm::Value(std::bit_cast<float>(static_cast<uint32_t>(input.bits)));
         return cmm::Error::Success;
     }
     if (is_type<double>(expected_type))
@@ -98,6 +100,12 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
     if (is_type<const char*>(expected_type))
     {
         output = cmm::Value(cmm_flow_bits_string(input.bits));
+        return cmm::Error::Success;
+    }
+    if (is_type<ByteSpan>(expected_type))
+    {
+        const auto* data = reinterpret_cast<const std::uint8_t*>(static_cast<std::uintptr_t>(input.bits));
+        output = cmm::Value(ByteSpan(data, static_cast<std::size_t>(input.extra)));
         return cmm::Error::Success;
     }
     if (is_type<void*>(expected_type))
@@ -115,11 +123,12 @@ void encode_integer(const cmm::Value& input, uint32_t kind, cmm_flow_value& outp
     output.kind = kind;
     output.reserved = 0;
     output.bits = static_cast<uint64_t>(input.get<T>());
+    output.extra = 0;
 }
 
 cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow_value& output)
 {
-    output = cmm_flow_value{CMM_FLOW_VOID, 0, 0};
+    output = cmm_flow_value{CMM_FLOW_VOID, 0, 0, 0};
 
     if (is_type<void>(return_type)) return cmm::Error::Success;
     if (is_type<bool>(return_type))
@@ -153,9 +162,16 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
     }
     if (is_type<const char*>(return_type))
     {
-        const char* value = input.get<const char*>();
         output.kind = CMM_FLOW_STRING;
-        output.bits = cmm_flow_string_bits(value);
+        output.bits = cmm_flow_string_bits(input.get<const char*>());
+        return cmm::Error::Success;
+    }
+    if (is_type<ByteSpan>(return_type))
+    {
+        const ByteSpan value = input.get<ByteSpan>();
+        output.kind = CMM_FLOW_BYTES;
+        output.bits = static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value.data()));
+        output.extra = static_cast<uint64_t>(value.size());
         return cmm::Error::Success;
     }
     if (cmm::is_pointer_type(return_type))
@@ -223,8 +239,7 @@ extern "C" int32_t cmm_flow_invoke(
     const cmm::Error invoked = cmm::reflect_invoke(function_id, values, reflected_result);
     if (invoked != cmm::Error::Success) return static_cast<int32_t>(invoked);
 
-    const cmm::Error encoded = encode_value(cmm::return_type_of(function_id), reflected_result, *result);
-    return static_cast<int32_t>(encoded);
+    return static_cast<int32_t>(encode_value(cmm::return_type_of(function_id), reflected_result, *result));
 }
 
 extern "C" const char* cmm_flow_error_string(int32_t error)
