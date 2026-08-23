@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "stabilize/**"]
+    branches: [main, "stabilize/**", "research/**"]
   pull_request:
 
 permissions:
@@ -23,9 +23,12 @@ jobs:
             bash -lc '
               apt-get update >/dev/null &&
               apt-get install -y --no-install-recommends cmake ninja-build >/dev/null &&
-              cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release &&
+              cmake -S . -B build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMM_BUILD_BENCHMARKS=ON &&
               cmake --build build &&
               ctest --test-dir build --output-on-failure &&
+              ./build/benchmarks/cmm_runtime_bench --iterations 10000 --batch 256 --json /tmp/cmm-benchmark.json &&
               cmake --install build --prefix /tmp/cmm-install
             '
 
