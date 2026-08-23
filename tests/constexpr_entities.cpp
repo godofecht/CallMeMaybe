@@ -1,5 +1,6 @@
 #include <array>
 #include <cstdint>
+#include <meta>
 #include <string_view>
 #include <utility>
 
@@ -14,6 +15,7 @@
 #include "cmm/detail/entities/parameter.hpp"
 #include "cmm/detail/entities/type.hpp"
 #include "cmm/detail/entities/variable.hpp"
+#include "cmm/detail/hash/info_hash.hpp"
 #include "cmm/detail/static_class_metadata.hpp"
 #include "cmm/meta.hpp"
 
@@ -31,6 +33,12 @@ struct StaticMetadataProbe : StaticMetadataBase {
 };
 
 int StaticMetadataProbe::shared = 3;
+
+inline constexpr cmm::info static_metadata_probe_base_id = []() consteval {
+    constexpr auto bases = std::define_static_array(
+        std::meta::bases_of(^^StaticMetadataProbe, std::meta::access_context::unchecked()));
+    return cmm::detail::hash_entity(bases[0]);
+}();
 
 constexpr bool constexpr_metadata_roundtrip()
 {
@@ -152,7 +160,7 @@ constexpr bool constexpr_metadata_roundtrip()
     if (generated.get_member_by_name("value") != cmm::get_id<^^StaticMetadataProbe::value>()) return false;
     if (generated.get_member_by_name("shared") != cmm::get_id<^^StaticMetadataProbe::shared>()) return false;
     if (generated.get_member_by_name("call") != cmm::invalid_info) return false;
-    if (generated.bases()[0] != cmm::get_id<^^StaticMetadataBase>()) return false;
+    if (generated.bases()[0] != static_metadata_probe_base_id) return false;
 
     return true;
 }
