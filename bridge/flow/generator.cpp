@@ -34,7 +34,7 @@ bool abi_type(uint32_t kind, AbiType& out)
         case CMM_FLOW_F32: out = {"f32", "cmm_f32", "cmm_as_f32", "0.0"}; return true;
         case CMM_FLOW_F64: out = {"f64", "cmm_f64", "cmm_as_f64", "0.0"}; return true;
         case CMM_FLOW_STRING: out = {"string", "cmm_string", "cmm_as_string", "\"\""}; return true;
-        case CMM_FLOW_BYTES: out = {"span<u8>", "cmm_flow_bytes", "cmm_as_byte_span", "cmm_flow_as_bytes(CmmFlowValue { kind: CMM_FLOW_BYTES, reserved: 0, bits: 0, extra: 0 })"}; return true;
+        case CMM_FLOW_BYTES: out = {"span<u8>", "cmm_bytes", "cmm_as_byte_span", "cmm_as_byte_span(CmmFlowValue { kind: CMM_FLOW_BYTES, reserved: 0, bits: 0, extra: 0 })"}; return true;
         default: return false;
     }
 }
