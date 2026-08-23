@@ -139,7 +139,7 @@ public:
     }();
 
     inline static constexpr auto base_ids = []() consteval {
-        constexpr auto bases = std::define_static_array(
+        static constexpr auto bases = std::define_static_array(
             std::meta::bases_of(ClassRefl, std::meta::access_context::unchecked()));
         std::array<cmm::info, bases.size()> result{};
         std::size_t index = 0;
