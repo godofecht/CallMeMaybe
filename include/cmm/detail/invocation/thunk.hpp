@@ -186,7 +186,7 @@ InvokerFn create_thunk() {
                 }
             };
 
-            using ReturnType = typename[:std::meta::return_type_of(FuncRefl):];
+            using ReturnType = decltype(do_invoke());
             if constexpr (std::is_void_v<ReturnType>) {
                 do_invoke();
                 out = Value{};
