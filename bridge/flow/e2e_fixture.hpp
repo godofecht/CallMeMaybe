@@ -16,4 +16,9 @@ inline bool cmm_e2e_not(bool value)
     return !value;
 }
 
+inline const char* cmm_e2e_echo(const char* value)
+{
+    return value;
+}
+
 #endif
