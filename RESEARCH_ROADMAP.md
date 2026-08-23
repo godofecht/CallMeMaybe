@@ -31,11 +31,12 @@ https://github.com/godofecht/CallMeMaybe/pull/3
 - [x] GCC / Clang-P2996 fingerprint comparison harness
 - [x] retained manifests and smallest-prefix minimization
 - [x] virtual-diamond inheritance and derived-to-virtual-base invocation corpus
-- [x] green GCC CI corpus
-- [ ] cv/ref-qualified member-function family
-- [ ] overload-set family
-- [ ] anonymous / nested / template family
-- [ ] large cross-compiler campaign and retained disagreements
+- [x] cv/ref-qualified member-function family
+- [x] overload-set family and ambiguous bare-lookup rejection
+- [x] anonymous / nested / template entity family
+- [x] resumable classified multi-program campaign runner
+- [x] green GCC CI smoke coverage across both corpus families
+- [ ] 100k cross-compiler campaign and retained disagreement corpus
 
 ### PR #4 — CallMeMaybe ↔ Flow runtime reflection bridge
 
@@ -44,14 +45,18 @@ https://github.com/godofecht/CallMeMaybe/pull/4
 - [x] stable tagged C ABI
 - [x] reflected lookup, signature inspection and checked invocation
 - [x] scalar integer / bool / f32 / f64 profile
+- [x] borrowed `const char*` strings as native Flow `string`
+- [x] borrowed byte-span parameters (`std::span<const uint8_t>` ↔ Flow `span<u8>`)
+- [ ] borrowed byte-span returns — blocked by CMM return-metadata extraction for `std::span`
 - [x] native Flow `extern` declarations
+- [x] generated ergonomic typed Flow wrappers with explicit error-bearing results
 - [x] cross-boundary regression tests and sanitizer coverage
-- [x] green CI validation
-- [ ] generated ergonomic Flow wrappers
-- [ ] strings / spans / aggregates / enums
-- [ ] typed borrowing and ownership rules
+- [x] pinned Flow compiler transpilation and C11 compile validation
+- [x] end-to-end linked Flow executable invoking reflected C++ functions
+- [ ] typed pointer / reference borrowing rules
+- [ ] aggregates and enums
 - [ ] methods / constructors
-- [ ] end-to-end Flow compiler link test
+- [ ] ownership-transfer profile
 
 ### PR #5 — Consteval registry port and measurement
 
@@ -60,10 +65,18 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] pin and inventory upstream consteval-registry experiment
 - [x] capture the stabilized semantic contract it must preserve
 - [x] define startup / lookup / invocation / compile-time / memory / size measurements
-- [ ] port constexpr-capable entity storage
-- [ ] build consteval entity/name indexes and runtime `RegistryView`
+- [x] constexpr-capable core metadata (`Entity`, `Type`, `Parameter`, `Enumerator`)
+- [x] constexpr-capable leaf metadata (`DataMember`, `Variable`, `Base`)
+- [x] span-backed constexpr Function parameter metadata with runtime-builder fallback
+- [x] span-backed constexpr Enum entry metadata preserving raw value/sign information
+- [x] compile-time static-assert regression across core, leaf, function and enum metadata
+- [ ] constexpr-capable Class aggregate storage
+- [ ] generated static class member/base/name spans
+- [ ] remove transitional runtime-owned Function/Enum fallback containers
+- [ ] dependency-stub / full-entity split
+- [ ] consteval entity/name indexes and non-templated runtime `RegistryView`
 - [ ] eliminate startup registration without semantic regression
-- [ ] GCC sanitizer and Clang/P2996 validation
+- [ ] GCC sanitizer and Clang/P2996 validation on the new backend
 - [ ] benchmark against the stabilized runtime backend
 
 ### PR #6 — Evidence-backed research report
@@ -72,10 +85,13 @@ https://github.com/godofecht/CallMeMaybe/pull/6
 
 - [x] evidence policy and experimental structure
 - [x] generator for benchmark and fuzzer result tables
-- [ ] machine metadata schema
+- [x] machine metadata schema
+- [x] machine/compiler/commit metadata collector
 - [ ] committed controlled-machine benchmark results
 - [ ] retained minimized reflection disagreements
-- [ ] consteval comparison and Flow bridge measurements
+- [ ] consteval-registry comparison
+- [ ] Flow bridge binding-size / overhead result
+- [ ] final findings section
 - [ ] focused upstream candidate list
 - [ ] concise Laurie-facing summary backed by reproducers and patches
 
