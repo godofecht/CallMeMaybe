@@ -438,7 +438,7 @@ inline cmm::info get_member(cmm::info class_id, std::string_view name) {
 template <typename... Args>
 inline cmm::info get_constructor(cmm::info class_id) {
     constexpr std::size_t N = sizeof...(Args);
-    const cmm::info expected[] = { detail::hash_entity(^^std::remove_cvref_t<Args>)... };
+    const cmm::info expected[] = { detail::hash_entity(std::meta::remove_cvref(^^Args))... };
 
     for (cmm::info m : members_view_of(class_id)) {
         if (!is_constructor(m)) continue;
