@@ -39,6 +39,11 @@ jobs:
               cat bridge/flow/call_me_maybe.flow /tmp/generated_wrappers.flow > /tmp/cmm_flow_module.flow &&
               PYTHONPATH=/src/flow-lang/src python3 -m flow.transpiler --c /tmp/cmm_flow_module.flow -o /tmp/cmm_flow_module.c &&
               cc -std=c11 -Werror -c /tmp/cmm_flow_module.c -o /tmp/cmm_flow_module.o &&
+              g++ /tmp/cmm_flow_module.o \
+                build/bridge/flow/libcmm_flow_e2e_runtime.a \
+                build/bridge/flow/libcmm_flow_bridge.a \
+                -pthread -o /tmp/cmm_flow_e2e &&
+              /tmp/cmm_flow_e2e &&
               cmake --install build --prefix /tmp/cmm-install
             '
 
