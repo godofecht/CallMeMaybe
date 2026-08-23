@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "stabilize/**"]
+    branches: [main, "stabilize/**", "research/**"]
   pull_request:
 
 permissions:
@@ -22,10 +22,15 @@ jobs:
             gcc:16.2.0 \
             bash -lc '
               apt-get update >/dev/null &&
-              apt-get install -y --no-install-recommends cmake ninja-build >/dev/null &&
+              apt-get install -y --no-install-recommends cmake ninja-build python3 >/dev/null &&
               cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release &&
               cmake --build build &&
               ctest --test-dir build --output-on-failure &&
+              python3 tools/reflection_fuzz/run.py \
+                --cases 8 \
+                --seed 1 \
+                --compiler "gcc=g++ -std=c++26 -freflection" \
+                --output-dir /tmp/cmm-reflection-fuzz &&
               cmake --install build --prefix /tmp/cmm-install
             '
 
