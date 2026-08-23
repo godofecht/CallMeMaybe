@@ -1,9 +1,12 @@
+#include <array>
 #include <cstdint>
 
 #include "cmm/detail/entities/base.hpp"
 #include "cmm/detail/entities/data_member.hpp"
 #include "cmm/detail/entities/entity.hpp"
+#include "cmm/detail/entities/enum.hpp"
 #include "cmm/detail/entities/enumerator.hpp"
+#include "cmm/detail/entities/function.hpp"
 #include "cmm/detail/entities/parameter.hpp"
 #include "cmm/detail/entities/type.hpp"
 #include "cmm/detail/entities/variable.hpp"
@@ -61,6 +64,31 @@ constexpr bool constexpr_metadata_roundtrip()
     if (base.type_id() != 88 || base.parent_id() != 99) return false;
     if (base.access() != cmm::detail::Access::Protected || !base.is_virtual()) return false;
     if (base.is_runtime_accessible()) return false;
+
+    const std::array<cmm::info, 2> parameter_ids{101, 102};
+    cmm::detail::Function function("call", true, false);
+    function.set_parent_id(103);
+    function.set_return_type_id(104);
+    function.set_is_const_member_function(true);
+    function.set_parameter_ids(parameter_ids);
+    if (!function.is_member_function() || function.is_static_function()) return false;
+    if (!function.is_const_member_function()) return false;
+    if (function.parent_id() != 103 || function.return_type_id() != 104) return false;
+    if (function.parameter_ids().size() != 2) return false;
+    if (function.parameter_ids()[0] != 101 || function.parameter_ids()[1] != 102) return false;
+
+    const std::array<cmm::detail::Enum::Entry, 2> entries{{
+        {"Zero", 0, false, 105},
+        {"High", UINT64_C(0x8000000000000000), false, 106},
+    }};
+    cmm::detail::Enum enum_type("Wide");
+    enum_type.set_enumerators(entries);
+    std::uint64_t enum_bits = 0;
+    bool enum_signed = true;
+    if (!enum_type.get_value_bits_by_name("High", enum_bits, enum_signed)) return false;
+    if (enum_bits != UINT64_C(0x8000000000000000) || enum_signed) return false;
+    if (enum_type.get_name_by_value_bits(enum_bits) != "High") return false;
+    if (enum_type.enumerators().size() != 2 || enum_type.enumerators()[1].entity_id != 106) return false;
 
     return true;
 }
