@@ -17,6 +17,7 @@
 #include "cmm/detail/entities/variable.hpp"
 #include "cmm/detail/hash/info_hash.hpp"
 #include "cmm/detail/static_class_metadata.hpp"
+#include "cmm/detail/static_function_enum_metadata.hpp"
 #include "cmm/meta.hpp"
 
 struct StaticMetadataBase {
@@ -33,6 +34,16 @@ struct StaticMetadataProbe : StaticMetadataBase {
 };
 
 int StaticMetadataProbe::shared = 3;
+
+int static_metadata_free(int value, double gain)
+{
+    return static_cast<int>(value * gain);
+}
+
+enum class StaticMetadataWide : std::uint64_t {
+    Zero = 0,
+    High = UINT64_C(0x8000000000000000),
+};
 
 inline constexpr cmm::info static_metadata_probe_base_id = []() consteval {
     constexpr auto bases = std::define_static_array(
@@ -106,6 +117,13 @@ constexpr bool constexpr_metadata_roundtrip()
     if (function.parameter_ids().size() != 2) return false;
     if (function.parameter_ids()[0] != 101 || function.parameter_ids()[1] != 102) return false;
 
+    cmm::detail::Function generated_function("static_metadata_free");
+    cmm::detail::StaticFunctionMetadata<^^static_metadata_free>::apply(generated_function);
+    if (generated_function.parameter_ids().size() != 2) return false;
+    constexpr auto free_parameters = std::define_static_array(std::meta::parameters_of(^^static_metadata_free));
+    if (generated_function.parameter_ids()[0] != cmm::detail::hash_entity(free_parameters[0])) return false;
+    if (generated_function.parameter_ids()[1] != cmm::detail::hash_entity(free_parameters[1])) return false;
+
     const std::array<cmm::detail::Enum::Entry, 2> entries{{
         {"Zero", 0, false, 105},
         {"High", UINT64_C(0x8000000000000000), false, 106},
@@ -118,6 +136,12 @@ constexpr bool constexpr_metadata_roundtrip()
     if (enum_bits != UINT64_C(0x8000000000000000) || enum_signed) return false;
     if (enum_type.get_name_by_value_bits(enum_bits) != "High") return false;
     if (enum_type.enumerators().size() != 2 || enum_type.enumerators()[1].entity_id != 106) return false;
+
+    cmm::detail::Enum generated_enum("StaticMetadataWide");
+    cmm::detail::StaticEnumMetadata<^^StaticMetadataWide>::apply(generated_enum);
+    if (generated_enum.enumerators().size() != 2) return false;
+    if (!generated_enum.get_value_bits_by_name("High", enum_bits, enum_signed)) return false;
+    if (enum_bits != UINT64_C(0x8000000000000000) || enum_signed) return false;
 
     const std::array<cmm::info, 4> class_members{201, 202, 203, 204};
     const std::array<cmm::info, 1> class_nonstatic{201};
