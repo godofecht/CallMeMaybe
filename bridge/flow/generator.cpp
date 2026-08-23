@@ -34,6 +34,7 @@ bool abi_type(uint32_t kind, AbiType& out)
         case CMM_FLOW_F32: out = {"f32", "cmm_f32", "cmm_as_f32", "0.0"}; return true;
         case CMM_FLOW_F64: out = {"f64", "cmm_f64", "cmm_as_f64", "0.0"}; return true;
         case CMM_FLOW_STRING: out = {"string", "cmm_string", "cmm_as_string", "\"\""}; return true;
+        case CMM_FLOW_BYTES: out = {"span<u8>", "cmm_flow_bytes", "cmm_as_byte_span", "null[0..0]"}; return true;
         default: return false;
     }
 }
@@ -43,17 +44,12 @@ std::string sanitize(std::string_view input)
     std::string output;
     output.reserve(input.size() + 1);
 
-    if (input.empty() || (!std::isalpha(static_cast<unsigned char>(input.front())) && input.front() != '_'))
-    {
-        output.push_back('_');
-    }
-
+    if (input.empty() || (!std::isalpha(static_cast<unsigned char>(input.front())) && input.front() != '_')) output.push_back('_');
     for (char ch : input)
     {
         const unsigned char uch = static_cast<unsigned char>(ch);
         output.push_back(std::isalnum(uch) || ch == '_' ? ch : '_');
     }
-
     return output;
 }
 
@@ -72,17 +68,13 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
     out << "# reflected C++: " << cmm::display_string_of(function_id) << "\n";
     out << "struct " << result_name << " {\n";
     if (!returns_void) out << "    value: " << return_type.flow_type << ",\n";
-    out << "    error: i32\n";
-    out << "}\n\n";
+    out << "    error: i32\n}\n\n";
 
     out << "export function " << name << '(';
     for (uint64_t index = 0; index < parameter_count; ++index)
     {
         AbiType parameter_type{};
-        if (!abi_type(cmm_flow_parameter_kind(function_id, index), parameter_type))
-        {
-            return cmm::Error::InvalidArgumentType;
-        }
+        if (!abi_type(cmm_flow_parameter_kind(function_id, index), parameter_type)) return cmm::Error::InvalidArgumentType;
         if (index != 0) out << ", ";
         out << "arg" << index << ": " << parameter_type.flow_type;
     }
@@ -102,7 +94,7 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
         out << "]\n";
     }
 
-    out << "    let mut result: CmmFlowValue = CmmFlowValue { kind: CMM_FLOW_VOID, reserved: 0, bits: 0 }\n";
+    out << "    let mut result: CmmFlowValue = CmmFlowValue { kind: CMM_FLOW_VOID, reserved: 0, bits: 0, extra: 0 }\n";
     out << "    let error: i32 = cmm_flow_invoke(function_id, ";
     if (parameter_count == 0) out << "null";
     else out << "&args[0]";
