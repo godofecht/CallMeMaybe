@@ -33,3 +33,18 @@ python3 tools/reflection_fuzz/run.py \
 ```
 
 Results are written to `reflection-fuzz-results/`: generated source, compiler stdout/stderr, one fingerprint per compiler, and a manifest recording the exact commands and disagreement set. A disagreement exits with status 3 so a corpus can be minimized and retained as a regression test rather than disappearing into a fuzz log.
+
+## Minimize a disagreement
+
+For this deterministic corpus family, `minimize.py` binary-searches the generated prefix and retains the smallest prefix that still produces a semantic fingerprint disagreement:
+
+```sh
+python3 tools/reflection_fuzz/minimize.py \
+  --max-cases 1000 \
+  --seed 7 \
+  --compiler 'gcc=g++-16 -std=c++26 -freflection' \
+  --compiler 'clang=/path/to/clang++ -std=c++26 -freflection-latest -stdlib=libc++' \
+  --output-dir reflection-fuzz-minimized
+```
+
+A compiler crash or ordinary compile failure is not treated as a semantic mismatch; minimization stops and preserves the diagnostic distinction rather than mislabelling it.
