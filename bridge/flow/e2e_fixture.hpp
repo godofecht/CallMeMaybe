@@ -24,9 +24,9 @@ inline const char* cmm_e2e_echo(const char* value)
     return value;
 }
 
-inline std::uint64_t cmm_e2e_byte_sum(std::span<const std::uint8_t> bytes)
+inline int cmm_e2e_byte_sum(std::span<const std::uint8_t> bytes)
 {
-    std::uint64_t sum = 0;
+    int sum = 0;
     for (std::uint8_t byte : bytes) sum += byte;
     return sum;
 }
