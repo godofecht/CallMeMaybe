@@ -15,6 +15,9 @@ public:
     Enumerator(std::string_view name, std::uint64_t value_bits, bool is_signed)
         : Entity(name), value_bits_(value_bits), is_signed_(is_signed) {}
 
+    Enumerator(std::string_view name, std::int64_t value)
+        : Enumerator(name, static_cast<std::uint64_t>(value), true) {}
+
     std::int64_t value() const { return static_cast<std::int64_t>(value_bits_); }
     std::uint64_t value_bits() const { return value_bits_; }
     bool is_signed() const { return is_signed_; }
