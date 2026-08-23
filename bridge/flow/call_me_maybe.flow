@@ -1,0 +1,92 @@
+# Flow declarations for the CallMeMaybe reflection bridge.
+# Link against the cmm_flow_bridge library and register reflected C++ entities
+# before the first lookup/invocation.
+
+const CMM_FLOW_VOID: u32 = 0
+const CMM_FLOW_BOOL: u32 = 1
+const CMM_FLOW_I8: u32 = 2
+const CMM_FLOW_U8: u32 = 3
+const CMM_FLOW_I16: u32 = 4
+const CMM_FLOW_U16: u32 = 5
+const CMM_FLOW_I32: u32 = 6
+const CMM_FLOW_U32: u32 = 7
+const CMM_FLOW_I64: u32 = 8
+const CMM_FLOW_U64: u32 = 9
+const CMM_FLOW_F32: u32 = 10
+const CMM_FLOW_F64: u32 = 11
+const CMM_FLOW_POINTER: u32 = 12
+const CMM_FLOW_UNSUPPORTED: u32 = 255
+
+struct CmmFlowValue {
+    kind: u32,
+    reserved: u32,
+    bits: u64
+}
+
+extern {
+    function cmm_flow_reflect_name(name: string) -> u64
+    function cmm_flow_parameter_count(function_id: u64) -> u64
+    function cmm_flow_parameter_kind(function_id: u64, index: u64) -> u32
+    function cmm_flow_return_kind(function_id: u64) -> u32
+    function cmm_flow_invoke(function_id: u64, arguments: ptr<CmmFlowValue>, argument_count: u64, result: ptr<CmmFlowValue>) -> i32
+    function cmm_flow_error_string(error: i32) -> string
+}
+
+export function cmm_i32(value: i32) -> CmmFlowValue {
+    return CmmFlowValue {
+        kind: CMM_FLOW_I32,
+        reserved: 0,
+        bits: value as u64
+    }
+}
+
+export function cmm_u32(value: u32) -> CmmFlowValue {
+    return CmmFlowValue {
+        kind: CMM_FLOW_U32,
+        reserved: 0,
+        bits: value as u64
+    }
+}
+
+export function cmm_i64(value: i64) -> CmmFlowValue {
+    return CmmFlowValue {
+        kind: CMM_FLOW_I64,
+        reserved: 0,
+        bits: value as u64
+    }
+}
+
+export function cmm_u64(value: u64) -> CmmFlowValue {
+    return CmmFlowValue {
+        kind: CMM_FLOW_U64,
+        reserved: 0,
+        bits: value
+    }
+}
+
+export function cmm_bool(value: bool) -> CmmFlowValue {
+    if value {
+        return CmmFlowValue { kind: CMM_FLOW_BOOL, reserved: 0, bits: 1 }
+    }
+    return CmmFlowValue { kind: CMM_FLOW_BOOL, reserved: 0, bits: 0 }
+}
+
+export function cmm_as_i32(value: CmmFlowValue) -> i32 {
+    return value.bits as i32
+}
+
+export function cmm_as_u32(value: CmmFlowValue) -> u32 {
+    return value.bits as u32
+}
+
+export function cmm_as_i64(value: CmmFlowValue) -> i64 {
+    return value.bits as i64
+}
+
+export function cmm_as_u64(value: CmmFlowValue) -> u64 {
+    return value.bits
+}
+
+export function cmm_as_bool(value: CmmFlowValue) -> bool {
+    return value.bits != 0
+}
