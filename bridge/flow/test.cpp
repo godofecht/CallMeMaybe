@@ -3,6 +3,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <cstring>
 #include <string>
 
 #include "cmm/meta.hpp"
@@ -22,14 +23,20 @@ bool reflected_not(bool value)
     return !value;
 }
 
+const char* reflected_echo(const char* value)
+{
+    return value;
+}
+
 int main()
 {
     assert(cmm::register_rrefl<^^reflected_add>() == cmm::Error::Success);
     assert(cmm::register_rrefl<^^reflected_scale>() == cmm::Error::Success);
     assert(cmm::register_rrefl<^^reflected_not>() == cmm::Error::Success);
+    assert(cmm::register_rrefl<^^reflected_echo>() == cmm::Error::Success);
 
     const cmm::flow::GenerationResult generated =
-        cmm::flow::generate_wrapper_fragment<^^reflected_add, ^^reflected_scale, ^^reflected_not>();
+        cmm::flow::generate_wrapper_fragment<^^reflected_add, ^^reflected_scale, ^^reflected_not, ^^reflected_echo>();
     assert(generated.error == cmm::Error::Success);
     assert(generated.source.find("arg0: i32") != std::string::npos);
     assert(generated.source.find("cmm_i32(arg0)") != std::string::npos);
@@ -37,6 +44,9 @@ int main()
     assert(generated.source.find("cmm_as_f64(result)") != std::string::npos);
     assert(generated.source.find("arg0: bool") != std::string::npos);
     assert(generated.source.find("cmm_as_bool(result)") != std::string::npos);
+    assert(generated.source.find("arg0: string") != std::string::npos);
+    assert(generated.source.find("cmm_string(arg0)") != std::string::npos);
+    assert(generated.source.find("cmm_as_string(result)") != std::string::npos);
 
     const cmm_flow_info add_id = cmm_flow_reflect_name("reflected_add");
     assert(add_id != cmm::invalid_info);
@@ -70,6 +80,17 @@ int main()
     assert(cmm_flow_invoke(not_id, &bool_arg, 1, &bool_result) == 0);
     assert(bool_result.kind == CMM_FLOW_BOOL);
     assert(bool_result.bits == 0);
+
+    const char* text = "borrowed-string";
+    const cmm_flow_info echo_id = cmm_flow_reflect_name("reflected_echo");
+    assert(echo_id != cmm::invalid_info);
+    assert(cmm_flow_parameter_kind(echo_id, 0) == CMM_FLOW_STRING);
+    assert(cmm_flow_return_kind(echo_id) == CMM_FLOW_STRING);
+    const cmm_flow_value string_arg{CMM_FLOW_STRING, 0, cmm_flow_string_bits(text)};
+    cmm_flow_value string_result{};
+    assert(cmm_flow_invoke(echo_id, &string_arg, 1, &string_result) == 0);
+    assert(string_result.kind == CMM_FLOW_STRING);
+    assert(std::strcmp(cmm_flow_bits_string(string_result.bits), text) == 0);
 
     cmm_flow_value bad_result{};
     assert(cmm_flow_invoke(add_id, &bool_arg, 1, &bad_result) ==
