@@ -56,13 +56,6 @@ std::string sanitize(std::string_view input)
     return output;
 }
 
-std::string unique_name(cmm::info function_id)
-{
-    std::ostringstream stream;
-    stream << "cmm_" << sanitize(cmm::identifier_of(function_id)) << '_' << std::hex << function_id;
-    return stream.str();
-}
-
 cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
 {
     const uint64_t parameter_count = cmm_flow_parameter_count(function_id);
@@ -72,7 +65,7 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
     AbiType return_type{};
     if (!returns_void && !abi_type(return_kind, return_type)) return cmm::Error::TypeMismatch;
 
-    const std::string name = unique_name(function_id);
+    const std::string name = wrapper_name(function_id);
     const std::string result_name = "CmmResult_" + name;
 
     out << "# reflected C++: " << cmm::display_string_of(function_id) << "\n";
@@ -131,6 +124,13 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
 }
 
 } // namespace
+
+std::string wrapper_name(cmm::info function_id)
+{
+    std::ostringstream stream;
+    stream << "cmm_" << sanitize(cmm::identifier_of(function_id)) << '_' << std::hex << function_id;
+    return stream.str();
+}
 
 GenerationResult generate_wrapper_fragment(std::span<const cmm::info> function_ids)
 {
