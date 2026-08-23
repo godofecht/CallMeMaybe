@@ -38,6 +38,12 @@ jobs:
                 --seed 1 \
                 --compiler "gcc=g++ -std=c++26 -freflection" \
                 --output-dir /tmp/cmm-reflection-fuzz-shapes &&
+              python3 tools/reflection_fuzz/campaign.py \
+                --programs 2 \
+                --cases-per-program 1 \
+                --family both \
+                --compiler "gcc=g++ -std=c++26 -freflection" \
+                --output-dir /tmp/cmm-reflection-fuzz-campaign &&
               cmake --install build --prefix /tmp/cmm-install
             '
 
