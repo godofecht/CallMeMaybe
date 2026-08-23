@@ -35,11 +35,7 @@ const int const_global = 7;
 int mutable_global = 8;
 
 void increment(int& value) { ++value; }
-const int* identity_seen = nullptr;
-const int& identity_ref(const int& value) {
-    identity_seen = &value;
-    return value;
-}
+const int& identity_ref(const int& value) { return value; }
 
 struct Invokable {
     [[=cmm::reflectable]] int get() const { return 1; }
@@ -176,11 +172,6 @@ int main() {
     const cmm::info identity_id = cmm::reflect_name("identity_ref");
     const int referenced = 42;
     const int& returned = cmm::invoke<const int&>(identity_id, referenced);
-    if (&returned != &referenced) {
-        std::cerr << "identity addresses: input=" << static_cast<const void*>(&referenced)
-                  << " seen=" << static_cast<const void*>(identity_seen)
-                  << " returned=" << static_cast<const void*>(&returned) << '\n';
-    }
     ok &= expect(&returned == &referenced, "reference return preserves aliasing");
 
     const cmm::info invokable_id = cmm::reflect_name("Invokable");
