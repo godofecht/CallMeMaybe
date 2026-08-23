@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "stabilize/**"]
+    branches: [main, "stabilize/**", "research/**"]
   pull_request:
 
 permissions:
@@ -23,7 +23,9 @@ jobs:
             bash -lc '
               apt-get update >/dev/null &&
               apt-get install -y --no-install-recommends cmake ninja-build >/dev/null &&
-              cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release &&
+              cmake -S . -B build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMM_BUILD_FLOW_BRIDGE=ON &&
               cmake --build build &&
               ctest --test-dir build --output-on-failure &&
               cmake --install build --prefix /tmp/cmm-install
@@ -40,6 +42,7 @@ jobs:
               apt-get install -y --no-install-recommends cmake ninja-build >/dev/null &&
               cmake -S . -B build-sanitize -G Ninja \
                 -DCMAKE_BUILD_TYPE=Debug \
+                -DCMM_BUILD_FLOW_BRIDGE=ON \
                 -DCMAKE_CXX_FLAGS="-Wall -Wextra -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer" &&
               cmake --build build-sanitize &&
               ctest --test-dir build-sanitize --output-on-failure
