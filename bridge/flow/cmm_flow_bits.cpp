@@ -51,3 +51,13 @@ extern "C" cmm_flow_span_u8 cmm_flow_as_bytes(cmm_flow_value value)
         static_cast<int64_t>(value.extra)
     };
 }
+
+extern "C" uint64_t cmm_flow_byte_span_data(cmm_flow_span_u8 value)
+{
+    return static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value.data));
+}
+
+extern "C" const uint8_t* cmm_flow_bits_u8_ptr(uint64_t bits)
+{
+    return reinterpret_cast<const uint8_t*>(static_cast<std::uintptr_t>(bits));
+}
