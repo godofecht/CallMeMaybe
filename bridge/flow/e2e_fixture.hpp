@@ -4,8 +4,6 @@
 #include <cstdint>
 #include <span>
 
-using CmmE2EByteSpan = std::span<const std::uint8_t>;
-
 inline int cmm_e2e_add(int a, int b)
 {
     return a + b;
@@ -26,16 +24,11 @@ inline const char* cmm_e2e_echo(const char* value)
     return value;
 }
 
-inline int cmm_e2e_byte_sum(CmmE2EByteSpan bytes)
+inline int cmm_e2e_byte_sum(std::span<const std::uint8_t> bytes)
 {
     int sum = 0;
     for (std::uint8_t byte : bytes) sum += byte;
     return sum;
-}
-
-inline CmmE2EByteSpan cmm_e2e_echo_bytes(CmmE2EByteSpan bytes)
-{
-    return bytes;
 }
 
 #endif
