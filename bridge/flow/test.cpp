@@ -1,8 +1,9 @@
 #include "cmm_flow.h"
+#include "generator.hpp"
 
-#include <bit>
 #include <cassert>
 #include <cstdint>
+#include <string>
 
 #include "cmm/meta.hpp"
 
@@ -27,6 +28,16 @@ int main()
     assert(cmm::register_rrefl<^^reflected_scale>() == cmm::Error::Success);
     assert(cmm::register_rrefl<^^reflected_not>() == cmm::Error::Success);
 
+    const cmm::flow::GenerationResult generated =
+        cmm::flow::generate_wrapper_fragment<^^reflected_add, ^^reflected_scale, ^^reflected_not>();
+    assert(generated.error == cmm::Error::Success);
+    assert(generated.source.find("arg0: i32") != std::string::npos);
+    assert(generated.source.find("cmm_i32(arg0)") != std::string::npos);
+    assert(generated.source.find("arg0: f64") != std::string::npos);
+    assert(generated.source.find("cmm_as_f64(result)") != std::string::npos);
+    assert(generated.source.find("arg0: bool") != std::string::npos);
+    assert(generated.source.find("cmm_as_bool(result)") != std::string::npos);
+
     const cmm_flow_info add_id = cmm_flow_reflect_name("reflected_add");
     assert(add_id != cmm::invalid_info);
     assert(cmm_flow_parameter_count(add_id) == 2);
@@ -45,13 +56,13 @@ int main()
 
     const cmm_flow_info scale_id = cmm_flow_reflect_name("reflected_scale");
     const cmm_flow_value scale_args[] = {
-        {CMM_FLOW_F64, 0, std::bit_cast<uint64_t>(3.5)},
-        {CMM_FLOW_F64, 0, std::bit_cast<uint64_t>(2.0)},
+        {CMM_FLOW_F64, 0, cmm_flow_f64_bits(3.5)},
+        {CMM_FLOW_F64, 0, cmm_flow_f64_bits(2.0)},
     };
     cmm_flow_value scale_result{};
     assert(cmm_flow_invoke(scale_id, scale_args, 2, &scale_result) == 0);
     assert(scale_result.kind == CMM_FLOW_F64);
-    assert(std::bit_cast<double>(scale_result.bits) == 7.0);
+    assert(cmm_flow_bits_f64(scale_result.bits) == 7.0);
 
     const cmm_flow_info not_id = cmm_flow_reflect_name("reflected_not");
     const cmm_flow_value bool_arg{CMM_FLOW_BOOL, 0, 1};
