@@ -15,6 +15,7 @@ struct GenerationResult {
     std::string source;
 };
 
+std::string wrapper_name(cmm::info function_id);
 GenerationResult generate_wrapper_fragment(std::span<const cmm::info> function_ids);
 
 template <std::meta::info... Functions>
