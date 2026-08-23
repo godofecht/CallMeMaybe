@@ -8,6 +8,7 @@ from pathlib import Path
 def render(case_count: int, seed: int) -> str:
     rng = random.Random(seed)
     lines = [
+        '#include <array>',
         '#include <cstddef>',
         '#include <cstdint>',
         '#include <iostream>',
@@ -42,6 +43,12 @@ def render(case_count: int, seed: int) -> str:
             f'struct LeftBase_{index} : virtual Root_{index} {{}};',
             f'struct RightBase_{index} : virtual Root_{index} {{}};',
             f'struct Diamond_{index} : LeftBase_{index}, RightBase_{index} {{}};',
+            '',
+            f'struct Qualified_{index} {{',
+            f'    int value = {index + 200};',
+            '    [[=cmm::reflectable]] int read() const & { return value; }',
+            '    [[=cmm::reflectable]] int bump() & { return ++value; }',
+            '};',
             '',
         ]
 
@@ -79,6 +86,7 @@ def render(case_count: int, seed: int) -> str:
             f'    ok = ok && cmm::register_rrefl<^^Root_{index}>() == cmm::Error::Success;',
             f'    ok = ok && cmm::register_rrefl<^^LeftBase_{index}>() == cmm::Error::Success;',
             f'    ok = ok && cmm::register_rrefl<^^RightBase_{index}>() == cmm::Error::Success;',
+            f'    ok = ok && cmm::register_rrefl<^^Qualified_{index}>() == cmm::Error::Success;',
         ]
 
     lines.append('')
@@ -132,6 +140,24 @@ def render(case_count: int, seed: int) -> str:
             '        if (read_id == cmm::invalid_info) ok = false;',
             f'        else if (cmm::invoke<int>(read_id, &diamond) != {index + 100}) ok = false;',
             f'        std::cout << "INHERIT\\tDiamond_{index}\\t" << left_bases.size() << "\\t" << right_bases.size() << "\\t" << diamond_bases.size() << "\\n";',
+            '    }',
+            '    {',
+            f'        const cmm::info qualified_id = cmm::get_id<^^Qualified_{index}>();',
+            '        const cmm::info read_id = cmm::lookup::get_member(qualified_id, "read");',
+            '        const cmm::info bump_id = cmm::lookup::get_member(qualified_id, "bump");',
+            '        if (read_id == cmm::invalid_info || bump_id == cmm::invalid_info) ok = false;',
+            '        if (read_id != cmm::invalid_info && !cmm::is_const_member_function(read_id)) ok = false;',
+            '        if (bump_id != cmm::invalid_info && cmm::is_const_member_function(bump_id)) ok = false;',
+            f'        Qualified_{index} mutable_value;',
+            f'        const Qualified_{index} const_value{{{index + 300}}};',
+            f'        if (read_id != cmm::invalid_info && cmm::invoke<int>(read_id, &const_value) != {index + 300}) ok = false;',
+            f'        if (bump_id != cmm::invalid_info && cmm::invoke<int>(bump_id, &mutable_value) != {index + 201}) ok = false;',
+            '        if (bump_id != cmm::invalid_info) {',
+            f'            std::array<cmm::Value, 1> const_args{{cmm::Value(&const_value)}};',
+            '            cmm::Value ignored;',
+            '            if (cmm::reflect_invoke(bump_id, const_args, ignored) != cmm::Error::ConstViolation) ok = false;',
+            '        }',
+            f'        std::cout << "QUALIFIED\\tQualified_{index}\\t" << (read_id != cmm::invalid_info) << "\\t" << (bump_id != cmm::invalid_info) << "\\n";',
             '    }',
         ]
 
