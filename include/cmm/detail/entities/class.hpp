@@ -81,10 +81,15 @@ public:
     }
 
     constexpr cmm::info get_member_by_name(std::string_view name) const {
+        cmm::info result = cmm::invalid_info;
+        bool found = false;
         for (const auto& entry : member_name_index_) {
-            if (entry.first == name) return entry.second;
+            if (entry.first != name) continue;
+            if (found) return cmm::invalid_info;
+            result = entry.second;
+            found = true;
         }
-        return cmm::invalid_info;
+        return found ? result : cmm::invalid_info;
     }
 
 private:
