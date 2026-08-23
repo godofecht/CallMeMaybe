@@ -50,6 +50,11 @@ def render(case_count: int, seed: int) -> str:
             '    [[=cmm::reflectable]] int bump() & { return ++value; }',
             '};',
             '',
+            f'struct Overload_{index} {{',
+            f'    [[=cmm::reflectable]] int call(int value) {{ return value + {index}; }}',
+            f'    [[=cmm::reflectable]] double call(double value) {{ return value + {index}.5; }}',
+            '};',
+            '',
         ]
 
     lines += [
@@ -87,6 +92,7 @@ def render(case_count: int, seed: int) -> str:
             f'    ok = ok && cmm::register_rrefl<^^LeftBase_{index}>() == cmm::Error::Success;',
             f'    ok = ok && cmm::register_rrefl<^^RightBase_{index}>() == cmm::Error::Success;',
             f'    ok = ok && cmm::register_rrefl<^^Qualified_{index}>() == cmm::Error::Success;',
+            f'    ok = ok && cmm::register_rrefl<^^Overload_{index}>() == cmm::Error::Success;',
         ]
 
     lines.append('')
@@ -153,11 +159,34 @@ def render(case_count: int, seed: int) -> str:
             f'        if (read_id != cmm::invalid_info && cmm::invoke<int>(read_id, &const_value) != {index + 300}) ok = false;',
             f'        if (bump_id != cmm::invalid_info && cmm::invoke<int>(bump_id, &mutable_value) != {index + 201}) ok = false;',
             '        if (bump_id != cmm::invalid_info) {',
-            f'            std::array<cmm::Value, 1> const_args{{cmm::Value(&const_value)}};',
+            '            std::array<cmm::Value, 1> const_args{cmm::Value(&const_value)};',
             '            cmm::Value ignored;',
             '            if (cmm::reflect_invoke(bump_id, const_args, ignored) != cmm::Error::ConstViolation) ok = false;',
             '        }',
             f'        std::cout << "QUALIFIED\\tQualified_{index}\\t" << (read_id != cmm::invalid_info) << "\\t" << (bump_id != cmm::invalid_info) << "\\n";',
+            '    }',
+            '    {',
+            f'        const cmm::info overload_id = cmm::get_id<^^Overload_{index}>();',
+            '        if (cmm::lookup::get_member(overload_id, "call") != cmm::invalid_info) ok = false;',
+            '        cmm::info int_call = cmm::invalid_info;',
+            '        cmm::info double_call = cmm::invalid_info;',
+            '        std::size_t overload_count = 0;',
+            '        for (cmm::info member : cmm::members_view_of(overload_id)) {',
+            '            if (cmm::identifier_of(member) != "call") continue;',
+            '            ++overload_count;',
+            '            if (cmm::parent_of(member) != overload_id) ok = false;',
+            '            const auto params = cmm::parameters_view_of(member);',
+            '            if (params.size() != 1) { ok = false; continue; }',
+            '            const cmm::info parameter_type = cmm::type_of(params[0]);',
+            '            if (parameter_type == cmm::get_id<^^int>()) int_call = member;',
+            '            else if (parameter_type == cmm::get_id<^^double>()) double_call = member;',
+            '            else ok = false;',
+            '        }',
+            '        if (overload_count != 2 || int_call == cmm::invalid_info || double_call == cmm::invalid_info || int_call == double_call) ok = false;',
+            f'        Overload_{index} object;',
+            f'        if (int_call != cmm::invalid_info && cmm::invoke<int>(int_call, &object, 10) != {index + 10}) ok = false;',
+            f'        if (double_call != cmm::invalid_info && cmm::invoke<double>(double_call, &object, 10.0) != {index + 10}.5) ok = false;',
+            f'        std::cout << "OVERLOAD\\tOverload_{index}\\t" << overload_count << "\\t" << (int_call != double_call) << "\\n";',
             '    }',
         ]
 
