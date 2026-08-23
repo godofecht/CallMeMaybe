@@ -43,6 +43,10 @@ int32_t cmm_flow_invoke(
     uint64_t argument_count,
     cmm_flow_value* result);
 const char* cmm_flow_error_string(int32_t error);
+uint64_t cmm_flow_f32_bits(float value);
+uint64_t cmm_flow_f64_bits(double value);
+float cmm_flow_bits_f32(uint64_t bits);
+double cmm_flow_bits_f64(uint64_t bits);
 
 #ifdef __cplusplus
 }
