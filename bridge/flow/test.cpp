@@ -43,7 +43,7 @@ int main()
     assert(generated.source.find("cmm_string(arg0)") != std::string::npos);
     assert(generated.source.find("cmm_as_string(result)") != std::string::npos);
     assert(generated.source.find("arg0: span<u8>") != std::string::npos);
-    assert(generated.source.find("cmm_flow_bytes(arg0)") != std::string::npos);
+    assert(generated.source.find("cmm_bytes(arg0)") != std::string::npos);
 
     const cmm_flow_info add_id = cmm_flow_reflect_name("reflected_add");
     assert(add_id != cmm::invalid_info);
