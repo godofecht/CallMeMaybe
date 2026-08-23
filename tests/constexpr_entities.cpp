@@ -152,7 +152,7 @@ constexpr bool constexpr_metadata_roundtrip()
     if (generated.get_member_by_name("value") != cmm::get_id<^^StaticMetadataProbe::value>()) return false;
     if (generated.get_member_by_name("shared") != cmm::get_id<^^StaticMetadataProbe::shared>()) return false;
     if (generated.get_member_by_name("call") != cmm::invalid_info) return false;
-    if (generated.bases()[0] == cmm::get_id<^^StaticMetadataBase>()) return false;
+    if (generated.bases()[0] != cmm::get_id<^^StaticMetadataBase>()) return false;
 
     return true;
 }
