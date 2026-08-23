@@ -46,6 +46,7 @@ uint32_t kind_of(cmm::info type_id)
     if (is_type<bool>(type_id)) return CMM_FLOW_BOOL;
     if (is_type<float>(type_id)) return CMM_FLOW_F32;
     if (is_type<double>(type_id)) return CMM_FLOW_F64;
+    if (is_type<const char*>(type_id)) return CMM_FLOW_STRING;
     if (cmm::is_pointer_type(type_id)) return CMM_FLOW_POINTER;
     if (cmm::is_integral_type(type_id))
     {
@@ -92,6 +93,11 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
     if (is_type<double>(expected_type))
     {
         output = cmm::Value(std::bit_cast<double>(input.bits));
+        return cmm::Error::Success;
+    }
+    if (is_type<const char*>(expected_type))
+    {
+        output = cmm::Value(cmm_flow_bits_string(input.bits));
         return cmm::Error::Success;
     }
     if (is_type<void*>(expected_type))
@@ -143,6 +149,13 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
     {
         output.kind = CMM_FLOW_F64;
         output.bits = std::bit_cast<uint64_t>(input.get<double>());
+        return cmm::Error::Success;
+    }
+    if (is_type<const char*>(return_type))
+    {
+        const char* value = input.get<const char*>();
+        output.kind = CMM_FLOW_STRING;
+        output.bits = cmm_flow_string_bits(value);
         return cmm::Error::Success;
     }
     if (cmm::is_pointer_type(return_type))
