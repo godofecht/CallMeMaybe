@@ -22,13 +22,17 @@ jobs:
             gcc:16.2.0 \
             bash -lc '
               apt-get update >/dev/null &&
-              apt-get install -y --no-install-recommends cmake ninja-build >/dev/null &&
+              apt-get install -y --no-install-recommends cmake ninja-build python3 time binutils >/dev/null &&
               cmake -S . -B build -G Ninja \
                 -DCMAKE_BUILD_TYPE=Release \
                 -DCMM_BUILD_BENCHMARKS=ON &&
               cmake --build build &&
               ctest --test-dir build --output-on-failure &&
               ./build/benchmarks/cmm_runtime_bench --iterations 10000 --batch 256 --json /tmp/cmm-benchmark.json &&
+              python3 benchmarks/run_scale.py \
+                --compiler "g++ -std=c++26 -freflection" \
+                --counts 10 \
+                --output /tmp/cmm-scale.json &&
               cmake --install build --prefix /tmp/cmm-install
             '
 
