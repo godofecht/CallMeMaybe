@@ -3,29 +3,31 @@
 
 #include <cstdint>
 #include <string_view>
-#include <vector>
+
 #include "cmm/info.hpp"
 #include "cmm/detail/entities/entity.hpp"
-#include "cmm/detail/entities/type.hpp"
 
 namespace cmm {
 namespace detail {
 
-// Represents an individual enum value like Color::Red
-// Inherits from Entity because it has a value and name, but isn't a type itself
 class Enumerator : public Entity {
 public:
-    Enumerator(std::string_view name, std::int64_t value)
-        : Entity(name), value_(value) {}
+    Enumerator(std::string_view name, std::uint64_t value_bits, bool is_signed)
+        : Entity(name), value_bits_(value_bits), is_signed_(is_signed) {}
 
-    std::int64_t value() const { return value_; }
+    Enumerator(std::string_view name, std::int64_t value)
+        : Enumerator(name, static_cast<std::uint64_t>(value), true) {}
+
+    std::int64_t value() const { return static_cast<std::int64_t>(value_bits_); }
+    std::uint64_t value_bits() const { return value_bits_; }
+    bool is_signed() const { return is_signed_; }
     cmm::info parent_id() const { return parent_id_; }
 
-    void set_value(std::int64_t v) { value_ = v; }
     void set_parent_id(cmm::info id) { parent_id_ = id; }
 
 private:
-    std::int64_t value_{0};
+    std::uint64_t value_bits_{0};
+    bool is_signed_{false};
     cmm::info parent_id_{cmm::invalid_info};
 };
 
