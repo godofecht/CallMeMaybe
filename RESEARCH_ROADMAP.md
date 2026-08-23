@@ -72,7 +72,7 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] compile-time static-assert regression across core, leaf, function and enum metadata
 - [x] constexpr-capable Class aggregate storage
 - [x] generated static class member/base/name spans
-- [ ] remove transitional runtime-owned Function/Enum fallback containers
+- [x] remove transitional runtime-owned Function/Enum fallback containers
 - [ ] dependency-stub / full-entity split
 - [ ] consteval entity/name indexes and non-templated runtime `RegistryView`
 - [ ] eliminate startup registration without semantic regression
