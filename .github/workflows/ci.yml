@@ -27,10 +27,17 @@ jobs:
               cmake --build build &&
               ctest --test-dir build --output-on-failure &&
               python3 tools/reflection_fuzz/run.py \
+                --family core \
                 --cases 8 \
                 --seed 1 \
                 --compiler "gcc=g++ -std=c++26 -freflection" \
-                --output-dir /tmp/cmm-reflection-fuzz &&
+                --output-dir /tmp/cmm-reflection-fuzz-core &&
+              python3 tools/reflection_fuzz/run.py \
+                --family shapes \
+                --cases 8 \
+                --seed 1 \
+                --compiler "gcc=g++ -std=c++26 -freflection" \
+                --output-dir /tmp/cmm-reflection-fuzz-shapes &&
               cmake --install build --prefix /tmp/cmm-install
             '
 
