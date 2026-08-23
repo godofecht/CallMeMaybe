@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <span>
 #include <string_view>
+#include <vector>
 #include "cmm/info.hpp"
 #include "cmm/detail/entities/type.hpp"
 
@@ -23,7 +24,21 @@ public:
         flags_.is_enum = true;
     }
 
-    constexpr void set_enumerators(std::span<const Entry> entries) { enumerators_ = entries; }
+    constexpr void set_enumerators(std::span<const Entry> entries) {
+        enumerators_ = entries;
+    }
+
+    void add_enumerator(std::string_view name, std::uint64_t value_bits,
+                        bool is_signed, cmm::info entity_id) {
+        owned_enumerators_.push_back({name, value_bits, is_signed, entity_id});
+        enumerators_ = owned_enumerators_;
+    }
+
+    void add_enumerator(std::string_view name, std::int64_t value,
+                        cmm::info entity_id) {
+        add_enumerator(name, static_cast<std::uint64_t>(value), true, entity_id);
+    }
+
     constexpr std::span<const Entry> enumerators() const { return enumerators_; }
 
     constexpr bool get_value_by_name(std::string_view name, std::int64_t& out_value) const {
@@ -60,6 +75,7 @@ public:
     }
 
 private:
+    std::vector<Entry> owned_enumerators_;
     std::span<const Entry> enumerators_{};
 };
 
