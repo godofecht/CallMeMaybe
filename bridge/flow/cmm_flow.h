@@ -24,6 +24,7 @@ typedef enum cmm_flow_kind {
     CMM_FLOW_F32 = 10,
     CMM_FLOW_F64 = 11,
     CMM_FLOW_POINTER = 12,
+    CMM_FLOW_STRING = 13,
     CMM_FLOW_UNSUPPORTED = 255
 } cmm_flow_kind;
 
@@ -47,6 +48,8 @@ uint64_t cmm_flow_f32_bits(float value);
 uint64_t cmm_flow_f64_bits(double value);
 float cmm_flow_bits_f32(uint64_t bits);
 double cmm_flow_bits_f64(uint64_t bits);
+uint64_t cmm_flow_string_bits(const char* value);
+const char* cmm_flow_bits_string(uint64_t bits);
 
 #ifdef __cplusplus
 }
