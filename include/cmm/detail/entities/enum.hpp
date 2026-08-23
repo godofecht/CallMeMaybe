@@ -28,6 +28,11 @@ public:
         enumerators_.push_back({name, value_bits, is_signed, entity_id});
     }
 
+    void add_enumerator(std::string_view name, std::int64_t value,
+                        cmm::info entity_id) {
+        add_enumerator(name, static_cast<std::uint64_t>(value), true, entity_id);
+    }
+
     const std::vector<Entry>& enumerators() const { return enumerators_; }
 
     bool get_value_by_name(std::string_view name, std::int64_t& out_value) const {
