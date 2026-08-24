@@ -7,7 +7,7 @@
 int main()
 {
     cmm::Error registration_error =
-        cmm::flow::register_bindings<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool, ^^cmm_e2e_pointer_u64, ^^cmm_e2e_mut_ref_u64, ^^cmm_e2e_enum_flip>();
+        cmm::flow::register_bindings<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool, ^^cmm_e2e_pointer_u64, ^^cmm_e2e_mut_ref_u64, ^^cmm_e2e_enum_flip, ^^cmm_e2e_make_point, ^^cmm_e2e_point_score, ^^cmm_e2e_shift_point>();
     if (registration_error == cmm::Error::Success) registration_error = cmm::register_rrefl<^^CmmE2eCounter>();
     if (registration_error != cmm::Error::Success)
     {
@@ -16,6 +16,7 @@ int main()
     }
 
     const cmm::info class_id = cmm::get_id<^^CmmE2eCounter>();
+    const cmm::info point_id = cmm::get_id<^^CmmE2ePoint>();
     const cmm::info ctor_id = cmm::lookup::get_constructor<int>(class_id);
     const cmm::info add_method_id = cmm::lookup::get_member(class_id, "add");
     const cmm::info value_method_id = cmm::lookup::get_member(class_id, "value");
@@ -42,6 +43,9 @@ int main()
         cmm::get_id<^^cmm_e2e_pointer_u64>(),
         cmm::get_id<^^cmm_e2e_mut_ref_u64>(),
         cmm::get_id<^^cmm_e2e_enum_flip>(),
+        cmm::get_id<^^cmm_e2e_make_point>(),
+        cmm::get_id<^^cmm_e2e_point_score>(),
+        cmm::get_id<^^cmm_e2e_shift_point>(),
         ctor_id,
         add_method_id,
         value_method_id,
@@ -69,6 +73,9 @@ int main()
     const std::string pointer_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_pointer_u64>());
     const std::string mut_ref_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_mut_ref_u64>());
     const std::string enum_flip_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_enum_flip>());
+    const std::string make_point_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_make_point>());
+    const std::string point_score_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_point_score>());
+    const std::string shift_point_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_shift_point>());
     const std::string ctor_name = cmm::flow::wrapper_name(ctor_id);
     const std::string add_method_name = cmm::flow::wrapper_name(add_method_id);
     const std::string value_method_name = cmm::flow::wrapper_name(value_method_id);
@@ -122,6 +129,20 @@ int main()
     std::cout << "    if enum_high.error != 0 or enum_high.value != 9223372036854775808 { return 29 }\n";
     std::cout << "    let enum_low = " << enum_flip_name << "(9223372036854775808)\n";
     std::cout << "    if enum_low.error != 0 or enum_low.value != 7 { return 30 }\n";
+    std::cout << "    let point_result = " << make_point_name << "(4, 2.5)\n";
+    std::cout << "    if point_result.error != 0 or point_result.value.aggregate_id == 0 { return 41 }\n";
+    std::cout << "    let point = point_result.value\n";
+    std::cout << "    let point_score = " << point_score_name << "(point)\n";
+    std::cout << "    if point_score.error != 0 or point_score.value != 6.5 { return 42 }\n";
+    std::cout << "    let shifted_result = " << shift_point_name << "(point)\n";
+    std::cout << "    if shifted_result.error != 0 or shifted_result.value.aggregate_id == 0 { return 43 }\n";
+    std::cout << "    let shifted = shifted_result.value\n";
+    std::cout << "    let shifted_score = " << point_score_name << "(shifted)\n";
+    std::cout << "    if shifted_score.error != 0 or shifted_score.value != 10.0 { return 44 }\n";
+    std::cout << "    if cmm_release_aggregate(point, " << point_id << ") != 0 { return 45 }\n";
+    std::cout << "    let released_score = " << point_score_name << "(point)\n";
+    std::cout << "    if released_score.error == 0 { return 46 }\n";
+    std::cout << "    if cmm_release_aggregate(shifted, " << point_id << ") != 0 { return 47 }\n";
     std::cout << "    let ctor_result = " << ctor_name << "(10)\n";
     std::cout << "    if ctor_result.error != 0 or ctor_result.value.object_id == 0 { return 31 }\n";
     std::cout << "    let counter = ctor_result.value\n";
