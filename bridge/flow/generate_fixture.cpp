@@ -6,7 +6,7 @@
 int main()
 {
     const cmm::flow::GenerationResult generated =
-        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes>();
+        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref>();
     if (generated.error != cmm::Error::Success)
     {
         std::cerr << cmm::to_string(generated.error) << '\n';
@@ -19,6 +19,9 @@ int main()
     const std::string echo_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_echo>());
     const std::string byte_sum_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_byte_sum>());
     const std::string bytes_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_bytes>());
+    const std::string pointer_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_pointer>());
+    const std::string mut_ref_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_mut_ref>());
+    const std::string const_ref_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_const_ref>());
 
     std::cout << generated.source;
     std::cout << "extern {\n";
@@ -43,6 +46,13 @@ int main()
     std::cout << "    if bytes_result.error != 0 { return 40 + bytes_result.error }\n";
     std::cout << "    if bytes_result.value.len != 4 { return 17 }\n";
     std::cout << "    if bytes_result.value[0] != 9 or bytes_result.value[1] != 8 or bytes_result.value[2] != 7 or bytes_result.value[3] != 6 { return 18 }\n";
+    std::cout << "    let mut borrowed: i32 = 37\n";
+    std::cout << "    let pointer_result = " << pointer_name << "(&borrowed)\n";
+    std::cout << "    if pointer_result.error != 0 or pointer_result.value[0] != 37 { return 19 }\n";
+    std::cout << "    let mut_ref_result = " << mut_ref_name << "(&borrowed)\n";
+    std::cout << "    if mut_ref_result.error != 0 or borrowed != 42 or mut_ref_result.value[0] != 42 { return 20 }\n";
+    std::cout << "    let const_ref_result = " << const_ref_name << "(&borrowed)\n";
+    std::cout << "    if const_ref_result.error != 0 or const_ref_result.value[0] != 42 { return 21 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
     return 0;
