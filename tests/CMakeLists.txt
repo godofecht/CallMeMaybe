@@ -17,3 +17,7 @@ add_test(NAME cmm_static_registry_declaration COMMAND cmm_static_registry_declar
 add_executable(cmm_static_function_parameters static_function_parameters.cpp)
 target_link_libraries(cmm_static_function_parameters PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_function_parameters COMMAND cmm_static_function_parameters)
+
+add_executable(cmm_static_enum_metadata static_enum_metadata.cpp)
+target_link_libraries(cmm_static_enum_metadata PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_enum_metadata COMMAND cmm_static_enum_metadata)
