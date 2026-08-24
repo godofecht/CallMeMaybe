@@ -2,6 +2,7 @@
 
 #include <bit>
 #include <cstdint>
+#include <cstring>
 #include <span>
 #include <type_traits>
 #include <vector>
@@ -50,6 +51,7 @@ uint32_t kind_of(cmm::info type_id)
 {
     if (is_type<void>(type_id)) return CMM_FLOW_VOID;
     if (is_type<bool>(type_id) || is_type<const bool>(type_id)) return CMM_FLOW_BOOL;
+    if (cmm::is_enum_type(type_id)) return kind_of(cmm::underlying_type(type_id));
     if (cmm::is_floating_point_type(type_id))
     {
         if (cmm::size_of(type_id) == sizeof(float)) return CMM_FLOW_F32;
@@ -61,14 +63,14 @@ uint32_t kind_of(cmm::info type_id)
     if (cmm::is_lvalue_reference_type(type_id))
     {
         const cmm::info target = cmm::underlying_type(type_id);
-        if (cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
+        if (cmm::is_enum_type(target) || cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
         return cmm::is_const_type(target) ? CMM_FLOW_CONST_REF : CMM_FLOW_MUT_REF;
     }
     if (cmm::is_rvalue_reference_type(type_id)) return CMM_FLOW_UNSUPPORTED;
     if (cmm::is_pointer_type(type_id))
     {
         const cmm::info target = cmm::underlying_type(type_id);
-        if (cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
+        if (cmm::is_enum_type(target) || cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
         return cmm::is_const_type(target) ? CMM_FLOW_CONST_POINTER : CMM_FLOW_POINTER;
     }
     if (cmm::is_integral_type(type_id)) return width_kind(cmm::is_signed_type(type_id), cmm::size_of(type_id));
@@ -79,7 +81,7 @@ uint32_t pointee_kind(cmm::info type_id)
 {
     if (!cmm::is_pointer_type(type_id) && !cmm::is_reference_type(type_id)) return CMM_FLOW_UNSUPPORTED;
     const cmm::info target = cmm::underlying_type(type_id);
-    if (cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
+    if (cmm::is_enum_type(target) || cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
     return kind_of(target);
 }
 
@@ -91,6 +93,22 @@ cmm::Error decode_integer(const cmm_flow_value& input, uint32_t expected_kind, c
     return cmm::Error::Success;
 }
 
+cmm::Error decode_enum_underlying(cmm::info enum_type, const cmm_flow_value& input, cmm::Value& output)
+{
+    const cmm::info underlying = cmm::underlying_type(enum_type);
+    if (is_type<signed char>(underlying)) return decode_integer<signed char>(input, CMM_FLOW_I8, output);
+    if (is_type<unsigned char>(underlying)) return decode_integer<unsigned char>(input, CMM_FLOW_U8, output);
+    if (is_type<short>(underlying)) return decode_integer<short>(input, width_kind(true, sizeof(short)), output);
+    if (is_type<unsigned short>(underlying)) return decode_integer<unsigned short>(input, width_kind(false, sizeof(unsigned short)), output);
+    if (is_type<int>(underlying)) return decode_integer<int>(input, width_kind(true, sizeof(int)), output);
+    if (is_type<unsigned int>(underlying)) return decode_integer<unsigned int>(input, width_kind(false, sizeof(unsigned int)), output);
+    if (is_type<long>(underlying)) return decode_integer<long>(input, width_kind(true, sizeof(long)), output);
+    if (is_type<unsigned long>(underlying)) return decode_integer<unsigned long>(input, width_kind(false, sizeof(unsigned long)), output);
+    if (is_type<long long>(underlying)) return decode_integer<long long>(input, width_kind(true, sizeof(long long)), output);
+    if (is_type<unsigned long long>(underlying)) return decode_integer<unsigned long long>(input, width_kind(false, sizeof(unsigned long long)), output);
+    return cmm::Error::InvalidArgumentType;
+}
+
 template <typename T>
 cmm::Error decode_scalar_borrow(cmm::info expected_type, const cmm_flow_value& input, cmm::Value& output)
 {
@@ -99,14 +117,8 @@ cmm::Error decode_scalar_borrow(cmm::info expected_type, const cmm_flow_value& i
     if (cmm::is_pointer_type(expected_type))
     {
         const cmm::info target = cmm::underlying_type(expected_type);
-        if (cmm::is_const_type(target))
-        {
-            output = cmm::Value(reinterpret_cast<const T*>(address));
-        }
-        else
-        {
-            output = cmm::Value(reinterpret_cast<T*>(address));
-        }
+        if (cmm::is_const_type(target)) output = cmm::Value(reinterpret_cast<const T*>(address));
+        else output = cmm::Value(reinterpret_cast<T*>(address));
         return cmm::Error::Success;
     }
 
@@ -144,6 +156,7 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
     const uint32_t expected_kind = kind_of(expected_type);
     if (input.kind != expected_kind) return cmm::Error::InvalidArgumentType;
 
+    if (cmm::is_enum_type(expected_type)) return decode_enum_underlying(expected_type, input, output);
     if (is_type<bool>(expected_type)) { output = cmm::Value(input.bits != 0); return cmm::Error::Success; }
     if (is_type<signed char>(expected_type)) return decode_integer<signed char>(input, CMM_FLOW_I8, output);
     if (is_type<unsigned char>(expected_type)) return decode_integer<unsigned char>(input, CMM_FLOW_U8, output);
@@ -169,10 +182,7 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
         output = cmm::Value(reinterpret_cast<void*>(static_cast<std::uintptr_t>(input.bits)));
         return cmm::Error::Success;
     }
-    if (cmm::is_pointer_type(expected_type) || cmm::is_lvalue_reference_type(expected_type))
-    {
-        return decode_borrow(expected_type, input, output);
-    }
+    if (cmm::is_pointer_type(expected_type) || cmm::is_lvalue_reference_type(expected_type)) return decode_borrow(expected_type, input, output);
     return cmm::Error::InvalidArgumentType;
 }
 
@@ -189,6 +199,14 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
 {
     output = cmm_flow_value{CMM_FLOW_VOID, 0, 0, 0};
     if (is_type<void>(return_type)) return cmm::Error::Success;
+    if (cmm::is_enum_type(return_type))
+    {
+        const std::size_t size = cmm::size_of(return_type);
+        if (size == 0 || size > sizeof(output.bits) || !input.data()) return cmm::Error::TypeMismatch;
+        output.kind = kind_of(return_type);
+        std::memcpy(&output.bits, input.data(), size);
+        return output.kind == CMM_FLOW_UNSUPPORTED ? cmm::Error::TypeMismatch : cmm::Error::Success;
+    }
     if (is_type<bool>(return_type)) { output.kind = CMM_FLOW_BOOL; output.bits = input.get<bool>() ? 1 : 0; return cmm::Error::Success; }
     if (is_type<signed char>(return_type)) { encode_integer<signed char>(input, CMM_FLOW_I8, output); return cmm::Error::Success; }
     if (is_type<unsigned char>(return_type)) { encode_integer<unsigned char>(input, CMM_FLOW_U8, output); return cmm::Error::Success; }
