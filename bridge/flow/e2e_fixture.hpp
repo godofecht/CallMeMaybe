@@ -12,6 +12,28 @@ enum class CmmE2eCode : std::uint64_t {
     High = UINT64_C(0x8000000000000000)
 };
 
+struct CmmE2ePoint {
+    int x{};
+    double y{};
+};
+
+inline CmmE2ePoint cmm_e2e_make_point(int x, double y)
+{
+    return CmmE2ePoint{x, y};
+}
+
+inline double cmm_e2e_point_score(CmmE2ePoint point)
+{
+    return static_cast<double>(point.x) + point.y;
+}
+
+inline CmmE2ePoint cmm_e2e_shift_point(CmmE2ePoint point)
+{
+    point.x += 3;
+    point.y += 0.5;
+    return point;
+}
+
 inline int cmm_e2e_destroyed_count = 0;
 
 class CmmE2eCounter {
