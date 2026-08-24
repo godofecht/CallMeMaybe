@@ -2,6 +2,7 @@
 #include "generator.hpp"
 
 #include <array>
+#undef NDEBUG
 #include <cassert>
 #include <cstdint>
 #include <cstring>
