@@ -31,7 +31,6 @@ uint32_t width_kind(bool is_signed, std::size_t size)
             default: return CMM_FLOW_UNSUPPORTED;
         }
     }
-
     switch (size)
     {
         case 1: return CMM_FLOW_U8;
@@ -50,12 +49,21 @@ uint32_t kind_of(cmm::info type_id)
     if (is_type<double>(type_id)) return CMM_FLOW_F64;
     if (is_type<const char*>(type_id)) return CMM_FLOW_STRING;
     if (is_type<ByteSpan>(type_id)) return CMM_FLOW_BYTES;
-    if (cmm::is_pointer_type(type_id)) return CMM_FLOW_POINTER;
-    if (cmm::is_integral_type(type_id))
+    if (cmm::is_lvalue_reference_type(type_id))
     {
-        return width_kind(cmm::is_signed_type(type_id), cmm::size_of(type_id));
+        const cmm::info target = cmm::underlying_type(type_id);
+        return cmm::is_const_type(target) ? CMM_FLOW_CONST_REF : CMM_FLOW_MUT_REF;
     }
+    if (cmm::is_rvalue_reference_type(type_id)) return CMM_FLOW_UNSUPPORTED;
+    if (cmm::is_pointer_type(type_id)) return CMM_FLOW_POINTER;
+    if (cmm::is_integral_type(type_id)) return width_kind(cmm::is_signed_type(type_id), cmm::size_of(type_id));
     return CMM_FLOW_UNSUPPORTED;
+}
+
+uint32_t pointee_kind(cmm::info type_id)
+{
+    if (!cmm::is_pointer_type(type_id) && !cmm::is_reference_type(type_id)) return CMM_FLOW_UNSUPPORTED;
+    return kind_of(cmm::underlying_type(type_id));
 }
 
 template <typename T>
@@ -71,11 +79,7 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
     const uint32_t expected_kind = kind_of(expected_type);
     if (input.kind != expected_kind) return cmm::Error::InvalidArgumentType;
 
-    if (is_type<bool>(expected_type))
-    {
-        output = cmm::Value(input.bits != 0);
-        return cmm::Error::Success;
-    }
+    if (is_type<bool>(expected_type)) { output = cmm::Value(input.bits != 0); return cmm::Error::Success; }
     if (is_type<signed char>(expected_type)) return decode_integer<signed char>(input, CMM_FLOW_I8, output);
     if (is_type<unsigned char>(expected_type)) return decode_integer<unsigned char>(input, CMM_FLOW_U8, output);
     if (is_type<short>(expected_type)) return decode_integer<short>(input, width_kind(true, sizeof(short)), output);
@@ -86,22 +90,9 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
     if (is_type<unsigned long>(expected_type)) return decode_integer<unsigned long>(input, width_kind(false, sizeof(unsigned long)), output);
     if (is_type<long long>(expected_type)) return decode_integer<long long>(input, width_kind(true, sizeof(long long)), output);
     if (is_type<unsigned long long>(expected_type)) return decode_integer<unsigned long long>(input, width_kind(false, sizeof(unsigned long long)), output);
-
-    if (is_type<float>(expected_type))
-    {
-        output = cmm::Value(std::bit_cast<float>(static_cast<uint32_t>(input.bits)));
-        return cmm::Error::Success;
-    }
-    if (is_type<double>(expected_type))
-    {
-        output = cmm::Value(std::bit_cast<double>(input.bits));
-        return cmm::Error::Success;
-    }
-    if (is_type<const char*>(expected_type))
-    {
-        output = cmm::Value(cmm_flow_bits_string(input.bits));
-        return cmm::Error::Success;
-    }
+    if (is_type<float>(expected_type)) { output = cmm::Value(std::bit_cast<float>(static_cast<uint32_t>(input.bits))); return cmm::Error::Success; }
+    if (is_type<double>(expected_type)) { output = cmm::Value(std::bit_cast<double>(input.bits)); return cmm::Error::Success; }
+    if (is_type<const char*>(expected_type)) { output = cmm::Value(cmm_flow_bits_string(input.bits)); return cmm::Error::Success; }
     if (is_type<ByteSpan>(expected_type))
     {
         const auto* data = reinterpret_cast<const std::uint8_t*>(static_cast<std::uintptr_t>(input.bits));
@@ -113,7 +104,30 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
         output = cmm::Value(reinterpret_cast<void*>(static_cast<std::uintptr_t>(input.bits)));
         return cmm::Error::Success;
     }
-
+    if (is_type<int*>(expected_type))
+    {
+        output = cmm::Value(reinterpret_cast<int*>(static_cast<std::uintptr_t>(input.bits)));
+        return cmm::Error::Success;
+    }
+    if (is_type<const int*>(expected_type))
+    {
+        output = cmm::Value(reinterpret_cast<const int*>(static_cast<std::uintptr_t>(input.bits)));
+        return cmm::Error::Success;
+    }
+    if (is_type<int&>(expected_type))
+    {
+        int* value = reinterpret_cast<int*>(static_cast<std::uintptr_t>(input.bits));
+        if (!value) return cmm::Error::NullValue;
+        output = cmm::Value::ref(*value);
+        return cmm::Error::Success;
+    }
+    if (is_type<const int&>(expected_type))
+    {
+        const int* value = reinterpret_cast<const int*>(static_cast<std::uintptr_t>(input.bits));
+        if (!value) return cmm::Error::NullValue;
+        output = cmm::Value::cref(*value);
+        return cmm::Error::Success;
+    }
     return cmm::Error::InvalidArgumentType;
 }
 
@@ -129,14 +143,8 @@ void encode_integer(const cmm::Value& input, uint32_t kind, cmm_flow_value& outp
 cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow_value& output)
 {
     output = cmm_flow_value{CMM_FLOW_VOID, 0, 0, 0};
-
     if (is_type<void>(return_type)) return cmm::Error::Success;
-    if (is_type<bool>(return_type))
-    {
-        output.kind = CMM_FLOW_BOOL;
-        output.bits = input.get<bool>() ? 1 : 0;
-        return cmm::Error::Success;
-    }
+    if (is_type<bool>(return_type)) { output.kind = CMM_FLOW_BOOL; output.bits = input.get<bool>() ? 1 : 0; return cmm::Error::Success; }
     if (is_type<signed char>(return_type)) { encode_integer<signed char>(input, CMM_FLOW_I8, output); return cmm::Error::Success; }
     if (is_type<unsigned char>(return_type)) { encode_integer<unsigned char>(input, CMM_FLOW_U8, output); return cmm::Error::Success; }
     if (is_type<short>(return_type)) { encode_integer<short>(input, width_kind(true, sizeof(short)), output); return cmm::Error::Success; }
@@ -147,25 +155,9 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
     if (is_type<unsigned long>(return_type)) { encode_integer<unsigned long>(input, width_kind(false, sizeof(unsigned long)), output); return cmm::Error::Success; }
     if (is_type<long long>(return_type)) { encode_integer<long long>(input, width_kind(true, sizeof(long long)), output); return cmm::Error::Success; }
     if (is_type<unsigned long long>(return_type)) { encode_integer<unsigned long long>(input, width_kind(false, sizeof(unsigned long long)), output); return cmm::Error::Success; }
-
-    if (is_type<float>(return_type))
-    {
-        output.kind = CMM_FLOW_F32;
-        output.bits = std::bit_cast<uint32_t>(input.get<float>());
-        return cmm::Error::Success;
-    }
-    if (is_type<double>(return_type))
-    {
-        output.kind = CMM_FLOW_F64;
-        output.bits = std::bit_cast<uint64_t>(input.get<double>());
-        return cmm::Error::Success;
-    }
-    if (is_type<const char*>(return_type))
-    {
-        output.kind = CMM_FLOW_STRING;
-        output.bits = cmm_flow_string_bits(input.get<const char*>());
-        return cmm::Error::Success;
-    }
+    if (is_type<float>(return_type)) { output.kind = CMM_FLOW_F32; output.bits = std::bit_cast<uint32_t>(input.get<float>()); return cmm::Error::Success; }
+    if (is_type<double>(return_type)) { output.kind = CMM_FLOW_F64; output.bits = std::bit_cast<uint64_t>(input.get<double>()); return cmm::Error::Success; }
+    if (is_type<const char*>(return_type)) { output.kind = CMM_FLOW_STRING; output.bits = cmm_flow_string_bits(input.get<const char*>()); return cmm::Error::Success; }
     if (is_type<ByteSpan>(return_type))
     {
         const ByteSpan value = input.get<ByteSpan>();
@@ -174,13 +166,18 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
         output.extra = static_cast<uint64_t>(value.size());
         return cmm::Error::Success;
     }
+    if (is_type<int&>(return_type) || is_type<const int&>(return_type))
+    {
+        output.kind = is_type<int&>(return_type) ? CMM_FLOW_MUT_REF : CMM_FLOW_CONST_REF;
+        output.bits = static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(input.data()));
+        return cmm::Error::Success;
+    }
     if (cmm::is_pointer_type(return_type))
     {
         output.kind = CMM_FLOW_POINTER;
         output.bits = static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(input.object_pointer()));
         return cmm::Error::Success;
     }
-
     return cmm::Error::TypeMismatch;
 }
 
@@ -204,29 +201,32 @@ extern "C" uint32_t cmm_flow_parameter_kind(cmm_flow_info function_id, uint64_t 
     return kind_of(cmm::type_of(parameters[static_cast<std::size_t>(index)]));
 }
 
+extern "C" uint32_t cmm_flow_parameter_pointee_kind(cmm_flow_info function_id, uint64_t index)
+{
+    const auto parameters = cmm::parameters_view_of(function_id);
+    if (index >= parameters.size()) return CMM_FLOW_UNSUPPORTED;
+    return pointee_kind(cmm::type_of(parameters[static_cast<std::size_t>(index)]));
+}
+
 extern "C" uint32_t cmm_flow_return_kind(cmm_flow_info function_id)
 {
     return kind_of(cmm::return_type_of(function_id));
 }
 
-extern "C" int32_t cmm_flow_invoke(
-    cmm_flow_info function_id,
-    const cmm_flow_value* arguments,
-    uint64_t argument_count,
-    cmm_flow_value* result)
+extern "C" uint32_t cmm_flow_return_pointee_kind(cmm_flow_info function_id)
+{
+    return pointee_kind(cmm::return_type_of(function_id));
+}
+
+extern "C" int32_t cmm_flow_invoke(cmm_flow_info function_id, const cmm_flow_value* arguments, uint64_t argument_count, cmm_flow_value* result)
 {
     if (!result) return static_cast<int32_t>(cmm::Error::NullValue);
     if (argument_count != 0 && !arguments) return static_cast<int32_t>(cmm::Error::NullValue);
-
     const auto parameters = cmm::parameters_view_of(function_id);
-    if (parameters.size() != argument_count)
-    {
-        return static_cast<int32_t>(cmm::Error::InvalidArgumentCount);
-    }
+    if (parameters.size() != argument_count) return static_cast<int32_t>(cmm::Error::InvalidArgumentCount);
 
     std::vector<cmm::Value> values;
     values.reserve(parameters.size());
-
     for (std::size_t i = 0; i < parameters.size(); ++i)
     {
         cmm::Value value;
@@ -238,16 +238,11 @@ extern "C" int32_t cmm_flow_invoke(
     cmm::Value reflected_result;
     const cmm::Error invoked = cmm::reflect_invoke(function_id, values, reflected_result);
     if (invoked != cmm::Error::Success) return static_cast<int32_t>(invoked);
-
     return static_cast<int32_t>(encode_value(cmm::return_type_of(function_id), reflected_result, *result));
 }
 
 extern "C" const char* cmm_flow_error_string(int32_t error)
 {
-    if (error < static_cast<int32_t>(cmm::Error::Success) ||
-        error > static_cast<int32_t>(cmm::Error::NonCopyableValue))
-    {
-        return "Unknown cmm::Error";
-    }
+    if (error < static_cast<int32_t>(cmm::Error::Success) || error > static_cast<int32_t>(cmm::Error::NonCopyableValue)) return "Unknown cmm::Error";
     return cmm::to_string(static_cast<cmm::Error>(error));
 }
