@@ -49,11 +49,6 @@ extern "C" uint64_t cmm_flow_byte_span_data(cmm_flow_span_u8 value)
     return static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value.data));
 }
 
-extern "C" const uint8_t* cmm_flow_bits_u8_ptr(uint64_t bits)
-{
-    return reinterpret_cast<const uint8_t*>(static_cast<std::uintptr_t>(bits));
-}
-
 #define CMM_FLOW_DEFINE_PTR_BITS(name, type) \
     extern "C" uint64_t cmm_flow_##name##_ptr_bits(const type* value) \
     { \
