@@ -36,7 +36,7 @@ jobs:
               cmake --build build &&
               ctest --test-dir build --output-on-failure &&
               ./build/bridge/flow/cmm_flow_generate_fixture > /tmp/generated_wrappers.flow &&
-              cat bridge/flow/call_me_maybe.flow bridge/flow/ownership.flow /tmp/generated_wrappers.flow > /tmp/cmm_flow_module.flow &&
+              cat bridge/flow/call_me_maybe.flow bridge/flow/ownership.flow bridge/flow/aggregate.flow /tmp/generated_wrappers.flow > /tmp/cmm_flow_module.flow &&
               PYTHONPATH=/src/flow-lang/src python3 -m flow.transpiler --c /tmp/cmm_flow_module.flow -o /tmp/cmm_flow_module.c &&
               cc -std=c11 -Werror -c /tmp/cmm_flow_module.c -o /tmp/cmm_flow_module.o &&
               g++ /tmp/cmm_flow_module.o \
