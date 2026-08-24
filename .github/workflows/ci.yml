@@ -25,6 +25,7 @@ jobs:
               apt-get install -y --no-install-recommends cmake ninja-build python3 time binutils librttr-dev git >/dev/null &&
               git clone --quiet https://github.com/wqking/metapp.git /tmp/metapp &&
               git -C /tmp/metapp checkout --quiet 2ef2ea1728fce0c9a6526b0820b03b7002d234d1 &&
+              sed -i "/#include <array>/a #include <cstdint>" /tmp/metapp/include/metapp/variantdata.h &&
               cmake -S /tmp/metapp -B /tmp/metapp-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/tmp/metapp-install &&
               cmake --build /tmp/metapp-build &&
               cmake --install /tmp/metapp-build &&
