@@ -94,7 +94,7 @@ https://github.com/godofecht/CallMeMaybe/pull/6
 - [ ] Flow bridge binding-size / overhead result
 - [ ] final findings section
 - [x] focused upstream candidate list
-- [ ] concise Laurie-facing summary backed by reproducers and patches
+- [x] concise Laurie-facing summary backed by reproducers and patches
 
 ## Exit criterion
 
