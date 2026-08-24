@@ -51,7 +51,7 @@ No performance claim should be made from a single shared-CI timing run. CI is fo
 - [x] Introduce constexpr-capable entity storage without changing the public runtime API.
 - [x] Replace incremental vector-backed member lists with stable spans over generated arrays.
 - [x] Split dependency stubs from explicitly requested full entity materialization.
-- [ ] Build entity/name indexes during constant evaluation.
+- [x] Build entity/name indexes during constant evaluation.
 - [x] Expose a non-templated runtime `RegistryView` over constant-initialized storage.
 - [ ] Replace startup `register_rrefl` calls with an explicit compile-time build declaration.
 - [ ] Port every stabilization regression test to the new backend.
@@ -59,7 +59,7 @@ No performance claim should be made from a single shared-CI timing run. CI is fo
 - [ ] Validate the current Clang/P2996 path or document a compiler-specific blocker with a minimal reproducer.
 - [ ] Feed both backends into the benchmark suite and commit the comparison results.
 
-`StaticRegistryData` now owns fixed sorted entity/name arrays and `RegistryView` exposes binary-search lookup through non-templated spans. CI #264 validates the view and its constexpr lookup regression under GCC 16.2 release plus ASan/UBSan. The entity/name-index step remains incomplete until a consteval builder materializes these arrays from reflected registrations rather than a fixed test fixture.
+`StaticRegistryData` now owns fixed sorted entity/name arrays, and its consteval builder derives the name index directly from entity storage, sorts both indexes, and marks duplicate names ambiguous with `cmm::invalid_info`. `RegistryView` exposes binary-search lookup through non-templated spans. CI #267 validates derived index construction, duplicate-name ambiguity, GCC 16.2 release tests and ASan/UBSan. The next architectural boundary is replacing startup registration with an explicit compile-time registry declaration.
 
 ## Upstream strategy
 
