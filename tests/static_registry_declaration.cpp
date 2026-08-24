@@ -18,7 +18,7 @@ struct StaticCollisionB
 };
 
 CMM_USE_STATIC_REGISTRY(
-    cmm::detail::make_two_class_static_registry<^^StaticCollisionA, ^^StaticCollisionB>())
+    (cmm::detail::make_two_class_static_registry<^^StaticCollisionA, ^^StaticCollisionB>()))
 
 int main()
 {
