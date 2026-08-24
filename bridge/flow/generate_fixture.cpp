@@ -6,7 +6,7 @@
 int main()
 {
     const cmm::flow::GenerationResult generated =
-        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool, ^^cmm_e2e_pointer_u64, ^^cmm_e2e_mut_ref_u64>();
+        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool, ^^cmm_e2e_pointer_u64, ^^cmm_e2e_mut_ref_u64, ^^cmm_e2e_enum_flip>();
     if (generated.error != cmm::Error::Success)
     {
         std::cerr << cmm::to_string(generated.error) << '\n';
@@ -26,6 +26,7 @@ int main()
     const std::string const_ref_bool_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_const_ref_bool>());
     const std::string pointer_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_pointer_u64>());
     const std::string mut_ref_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_mut_ref_u64>());
+    const std::string enum_flip_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_enum_flip>());
 
     std::cout << generated.source;
     std::cout << "extern {\n";
@@ -70,6 +71,10 @@ int main()
     std::cout << "    let wide_ref_result = " << mut_ref_u64_name << "(&wide)\n";
     std::cout << "    if wide_ref_result.error != 0 { return 80 + wide_ref_result.error }\n";
     std::cout << "    if wide != 5000000007 or wide_ref_result.value[0] != 5000000007 { return 28 }\n";
+    std::cout << "    let enum_high = " << enum_flip_name << "(7)\n";
+    std::cout << "    if enum_high.error != 0 or enum_high.value != 9223372036854775808 { return 29 }\n";
+    std::cout << "    let enum_low = " << enum_flip_name << "(9223372036854775808)\n";
+    std::cout << "    if enum_low.error != 0 or enum_low.value != 7 { return 30 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
     return 0;
