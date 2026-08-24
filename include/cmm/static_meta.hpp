@@ -2,6 +2,7 @@
 #define CALLMEMAYBE_STATIC_META_HPP
 
 #include <cstddef>
+#include <cstdint>
 #include <span>
 #include <string_view>
 #include <type_traits>
@@ -88,6 +89,17 @@ inline cmm::info parent_of(cmm::info i)
     });
 }
 
+inline cmm::info underlying_type(cmm::info i)
+{
+    if (!detail::static_valid(i)) return invalid_info;
+    return detail::visit_static_entity(i, [](const auto& arg) -> cmm::info
+    {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_base_of_v<detail::Type, T>) return arg.underlying_type_id();
+        return invalid_info;
+    });
+}
+
 inline std::span<const cmm::info> members_view_of(cmm::info i)
 {
     if (!detail::static_valid(i)) return {};
@@ -112,6 +124,34 @@ inline std::vector<cmm::info> nonstatic_data_members_of(cmm::info i)
 {
     const auto view = nonstatic_data_members_view_of(i);
     return {view.begin(), view.end()};
+}
+
+inline std::vector<cmm::info> enumerators_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return {};
+    const auto* enumeration = detail::active_static_registry().try_get_as<detail::Enum>(i);
+    if (!enumeration) return {};
+
+    std::vector<cmm::info> result;
+    result.reserve(enumeration->enumerators().size());
+    for (const auto& entry : enumeration->enumerators()) result.push_back(entry.entity_id);
+    return result;
+}
+
+inline cmm::Error try_value_of(cmm::info i, std::int64_t& out)
+{
+    if (!detail::static_valid(i)) return cmm::Error::EntityNotFound;
+    const auto* enumerator = detail::active_static_registry().try_get_as<detail::Enumerator>(i);
+    if (!enumerator) return cmm::Error::TypeMismatch;
+    out = enumerator->value();
+    return cmm::Error::Success;
+}
+
+inline std::int64_t value_of(cmm::info i)
+{
+    std::int64_t value = 0;
+    (void)try_value_of(i, value);
+    return value;
 }
 
 inline std::span<const cmm::info> parameters_view_of(cmm::info i)
@@ -172,6 +212,20 @@ inline cmm::info get_member(cmm::info class_id, std::string_view name)
     if (!detail::static_valid(class_id)) return invalid_info;
     const auto* cls = detail::active_static_registry().try_get_as<detail::Class>(class_id);
     return cls ? cls->get_member_by_name(name) : invalid_info;
+}
+
+inline std::string_view enum_to_string(cmm::info enum_type_id, std::int64_t value)
+{
+    if (!detail::static_valid(enum_type_id)) return {};
+    const auto* enumeration = detail::active_static_registry().try_get_as<detail::Enum>(enum_type_id);
+    return enumeration ? enumeration->get_name_by_value(value) : std::string_view{};
+}
+
+inline bool string_to_enum(cmm::info enum_type_id, std::string_view name, std::int64_t& out_value)
+{
+    if (!detail::static_valid(enum_type_id)) return false;
+    const auto* enumeration = detail::active_static_registry().try_get_as<detail::Enum>(enum_type_id);
+    return enumeration ? enumeration->get_value_by_name(name, out_value) : false;
 }
 
 } // namespace lookup
