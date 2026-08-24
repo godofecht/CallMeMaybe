@@ -48,9 +48,9 @@ No performance claim should be made from a single shared-CI timing run. CI is fo
 - [x] Inventory the upstream experiment and pin its exact head commit.
 - [x] Record the stabilized semantic contract that cannot regress.
 - [x] Define the benchmark dimensions that decide whether the architecture is worthwhile.
-- [ ] Introduce constexpr-capable entity storage without changing the public runtime API.
-- [ ] Replace incremental vector-backed member lists with stable spans over generated arrays.
-- [ ] Split dependency stubs from explicitly requested full entity materialization.
+- [x] Introduce constexpr-capable entity storage without changing the public runtime API.
+- [x] Replace incremental vector-backed member lists with stable spans over generated arrays.
+- [x] Split dependency stubs from explicitly requested full entity materialization.
 - [ ] Build entity/name indexes during constant evaluation.
 - [ ] Expose a non-templated runtime `RegistryView` over constant-initialized storage.
 - [ ] Replace startup `register_rrefl` calls with an explicit compile-time build declaration.
