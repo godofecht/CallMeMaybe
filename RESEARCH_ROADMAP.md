@@ -94,10 +94,12 @@ https://github.com/godofecht/CallMeMaybe/pull/6
 - [ ] committed controlled-machine benchmark results
 - [ ] retained minimized reflection disagreements
 - [ ] consteval-registry comparison
-- [ ] Flow bridge binding-size / overhead result
+- [x] Flow bridge binding-size / overhead result
 - [ ] final findings section
 - [x] focused upstream candidate list
 - [x] concise Laurie-facing summary backed by reproducers and patches
+
+Flow bridge footprint evidence is retained from PR #4 CI #465 in PR #6 at `research/evidence/flow_bridge_ci465.json`; it records deterministic generated-wrapper and ABI-storage sizes only, not shared-CI latency.
 
 ## Exit criterion
 
