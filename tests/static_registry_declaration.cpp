@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <string_view>
 
 #include "cmm/annotations.hpp"
@@ -16,7 +17,7 @@ int main()
     const cmm::detail::RegistryView& registry = cmm::detail::active_static_registry();
     const cmm::info widget_id = cmm::detail::hash_entity(^^StaticWidget);
 
-    constexpr auto members = std::define_static_array(
+    static constexpr auto members = std::define_static_array(
         std::meta::members_of(^^StaticWidget, std::meta::access_context::unchecked()));
     cmm::info value_id = cmm::invalid_info;
     cmm::info int_id = cmm::invalid_info;
