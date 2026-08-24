@@ -64,14 +64,20 @@ bool requires_instance(cmm::info function_id)
            !cmm::is_destructor(function_id);
 }
 
-std::uint64_t store_object(cmm::Value&& value)
+std::uint64_t store_value(cmm::Value&& value)
 {
-    if (!value.object_pointer() || value.pointee_type_id() == cmm::invalid_info) return 0;
+    if (!value.has_value() || value.type_id() == cmm::invalid_info) return 0;
     const std::uint64_t handle = next_object_handle.fetch_add(1, std::memory_order_relaxed);
     auto stored = std::make_shared<cmm::Value>(std::move(value));
     std::lock_guard<std::mutex> lock(object_mutex);
     objects.emplace(handle, std::move(stored));
     return handle;
+}
+
+std::uint64_t store_object(cmm::Value&& value)
+{
+    if (!value.object_pointer() || value.pointee_type_id() == cmm::invalid_info) return 0;
+    return store_value(std::move(value));
 }
 
 std::shared_ptr<cmm::Value> get_object(std::uint64_t handle)
@@ -113,6 +119,7 @@ uint32_t kind_of(cmm::info type_id)
         if (cmm::is_enum_type(target) || cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
         return cmm::is_const_type(target) ? CMM_FLOW_CONST_POINTER : CMM_FLOW_POINTER;
     }
+    if (cmm::is_class_type(type_id) || cmm::is_union_type(type_id)) return CMM_FLOW_AGGREGATE;
     if (cmm::is_integral_type(type_id)) return width_kind(cmm::is_signed_type(type_id), cmm::size_of(type_id));
     return CMM_FLOW_UNSUPPORTED;
 }
@@ -195,6 +202,13 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
     if (input.kind != expected_kind) return cmm::Error::InvalidArgumentType;
 
     if (cmm::is_enum_type(expected_type)) return decode_enum_underlying(expected_type, input, output);
+    if (cmm::is_class_type(expected_type) || cmm::is_union_type(expected_type))
+    {
+        std::shared_ptr<cmm::Value> aggregate = get_object(input.bits);
+        if (!aggregate) return cmm::Error::NullValue;
+        if (aggregate->type_id() != expected_type) return cmm::Error::InvalidArgumentType;
+        return aggregate->try_copy_to(output);
+    }
     if (is_type<bool>(expected_type)) { output = cmm::Value(input.bits != 0); return cmm::Error::Success; }
     if (is_type<signed char>(expected_type)) return decode_integer<signed char>(input, CMM_FLOW_I8, output);
     if (is_type<unsigned char>(expected_type)) return decode_integer<unsigned char>(input, CMM_FLOW_U8, output);
@@ -244,6 +258,16 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
         output.kind = kind_of(return_type);
         std::memcpy(&output.bits, input.data(), size);
         return output.kind == CMM_FLOW_UNSUPPORTED ? cmm::Error::TypeMismatch : cmm::Error::Success;
+    }
+    if (cmm::is_class_type(return_type) || cmm::is_union_type(return_type))
+    {
+        cmm::Value copy;
+        const cmm::Error copied = input.try_copy_to(copy);
+        if (copied != cmm::Error::Success) return copied;
+        const std::uint64_t handle = store_value(std::move(copy));
+        if (handle == 0) return cmm::Error::TypeMismatch;
+        output = cmm_flow_value{CMM_FLOW_AGGREGATE, 0, handle, return_type};
+        return cmm::Error::Success;
     }
     if (is_type<bool>(return_type)) { output.kind = CMM_FLOW_BOOL; output.bits = input.get<bool>() ? 1 : 0; return cmm::Error::Success; }
     if (is_type<signed char>(return_type)) { encode_integer<signed char>(input, CMM_FLOW_I8, output); return cmm::Error::Success; }
@@ -414,6 +438,15 @@ extern "C" int32_t cmm_flow_invoke_method(cmm_flow_info function_id,
     }
 
     return static_cast<int32_t>(encode_value(cmm::return_type_of(function_id), reflected_result, *result));
+}
+
+extern "C" int32_t cmm_flow_release_aggregate(uint64_t aggregate_handle, cmm_flow_info type_id)
+{
+    std::shared_ptr<cmm::Value> aggregate = get_object(aggregate_handle);
+    if (!aggregate) return static_cast<int32_t>(cmm::Error::NullValue);
+    if (aggregate->type_id() != type_id) return static_cast<int32_t>(cmm::Error::InvalidArgumentType);
+    erase_object(aggregate_handle);
+    return static_cast<int32_t>(cmm::Error::Success);
 }
 
 extern "C" const char* cmm_flow_error_string(int32_t error)
