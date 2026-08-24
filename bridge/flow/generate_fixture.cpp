@@ -6,7 +6,7 @@
 int main()
 {
     const cmm::flow::GenerationResult generated =
-        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool>();
+        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool, ^^cmm_e2e_pointer_u64, ^^cmm_e2e_mut_ref_u64>();
     if (generated.error != cmm::Error::Success)
     {
         std::cerr << cmm::to_string(generated.error) << '\n';
@@ -24,6 +24,8 @@ int main()
     const std::string const_ref_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_const_ref>());
     const std::string mut_ref_f64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_mut_ref_f64>());
     const std::string const_ref_bool_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_const_ref_bool>());
+    const std::string pointer_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_pointer_u64>());
+    const std::string mut_ref_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_mut_ref_u64>());
 
     std::cout << generated.source;
     std::cout << "extern {\n";
@@ -61,6 +63,11 @@ int main()
     std::cout << "    let mut truth: bool = true\n";
     std::cout << "    let truth_result = " << const_ref_bool_name << "(&truth)\n";
     std::cout << "    if truth_result.error != 0 or truth_result.value[0] != true { return 24 }\n";
+    std::cout << "    let mut wide: u64 = 9223372036854775813\n";
+    std::cout << "    let wide_ptr_result = " << pointer_u64_name << "(&wide)\n";
+    std::cout << "    if wide_ptr_result.error != 0 or wide_ptr_result.value[0] != 9223372036854775813 { return 25 }\n";
+    std::cout << "    let wide_ref_result = " << mut_ref_u64_name << "(&wide)\n";
+    std::cout << "    if wide_ref_result.error != 0 or wide != 9223372036854775820 or wide_ref_result.value[0] != 9223372036854775820 { return 26 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
     return 0;
