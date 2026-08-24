@@ -26,6 +26,8 @@ typedef enum cmm_flow_kind {
     CMM_FLOW_POINTER = 12,
     CMM_FLOW_STRING = 13,
     CMM_FLOW_BYTES = 14,
+    CMM_FLOW_MUT_REF = 15,
+    CMM_FLOW_CONST_REF = 16,
     CMM_FLOW_UNSUPPORTED = 255
 } cmm_flow_kind;
 
@@ -44,12 +46,10 @@ typedef struct cmm_flow_span_u8 {
 cmm_flow_info cmm_flow_reflect_name(const char* name);
 uint64_t cmm_flow_parameter_count(cmm_flow_info function_id);
 uint32_t cmm_flow_parameter_kind(cmm_flow_info function_id, uint64_t index);
+uint32_t cmm_flow_parameter_pointee_kind(cmm_flow_info function_id, uint64_t index);
 uint32_t cmm_flow_return_kind(cmm_flow_info function_id);
-int32_t cmm_flow_invoke(
-    cmm_flow_info function_id,
-    const cmm_flow_value* arguments,
-    uint64_t argument_count,
-    cmm_flow_value* result);
+uint32_t cmm_flow_return_pointee_kind(cmm_flow_info function_id);
+int32_t cmm_flow_invoke(cmm_flow_info function_id, const cmm_flow_value* arguments, uint64_t argument_count, cmm_flow_value* result);
 const char* cmm_flow_error_string(int32_t error);
 uint64_t cmm_flow_f32_bits(float value);
 uint64_t cmm_flow_f64_bits(double value);
@@ -61,6 +61,8 @@ cmm_flow_value cmm_flow_bytes(cmm_flow_span_u8 value);
 cmm_flow_span_u8 cmm_flow_as_bytes(cmm_flow_value value);
 uint64_t cmm_flow_byte_span_data(cmm_flow_span_u8 value);
 const uint8_t* cmm_flow_bits_u8_ptr(uint64_t bits);
+uint64_t cmm_flow_i32_ptr_bits(const int32_t* value);
+int32_t* cmm_flow_bits_i32_ptr(uint64_t bits);
 
 #ifdef __cplusplus
 }
