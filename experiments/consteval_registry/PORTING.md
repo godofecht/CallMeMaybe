@@ -52,12 +52,14 @@ No performance claim should be made from a single shared-CI timing run. CI is fo
 - [x] Replace incremental vector-backed member lists with stable spans over generated arrays.
 - [x] Split dependency stubs from explicitly requested full entity materialization.
 - [ ] Build entity/name indexes during constant evaluation.
-- [ ] Expose a non-templated runtime `RegistryView` over constant-initialized storage.
+- [x] Expose a non-templated runtime `RegistryView` over constant-initialized storage.
 - [ ] Replace startup `register_rrefl` calls with an explicit compile-time build declaration.
 - [ ] Port every stabilization regression test to the new backend.
 - [ ] Run release and sanitizer CI on GCC 16.2.
 - [ ] Validate the current Clang/P2996 path or document a compiler-specific blocker with a minimal reproducer.
 - [ ] Feed both backends into the benchmark suite and commit the comparison results.
+
+`StaticRegistryData` now owns fixed sorted entity/name arrays and `RegistryView` exposes binary-search lookup through non-templated spans. CI #264 validates the view and its constexpr lookup regression under GCC 16.2 release plus ASan/UBSan. The entity/name-index step remains incomplete until a consteval builder materializes these arrays from reflected registrations rather than a fixed test fixture.
 
 ## Upstream strategy
 
