@@ -16,7 +16,7 @@ inline const RegistryView& active_static_registry() noexcept
 
 #define CMM_USE_STATIC_REGISTRY(DataExpression)                                      \
     namespace cmm::detail {                                                         \
-    inline constexpr auto g_active_static_registry_data = (DataExpression);          \
+    inline constinit const auto g_active_static_registry_data = (DataExpression);    \
     constinit const RegistryView g_active_static_registry{g_active_static_registry_data}; \
     }
 
