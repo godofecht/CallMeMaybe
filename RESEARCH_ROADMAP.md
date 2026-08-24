@@ -18,7 +18,7 @@ https://github.com/godofecht/CallMeMaybe/pull/2
 - [x] compile wall time, peak compiler RSS, binary size and stripped size collection
 - [x] green CI smoke validation
 - [x] RTTR adapter
-- [ ] metapp adapter
+- [x] metapp adapter
 - [ ] publishable result set on a controlled machine
 
 ### PR #3 — Differential C++26 reflection fuzzer
