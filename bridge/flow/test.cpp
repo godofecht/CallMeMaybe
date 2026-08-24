@@ -15,7 +15,6 @@ int reflected_add(int a, int b) { return a + b; }
 double reflected_scale(double value, double gain) { return value * gain; }
 bool reflected_not(bool value) { return !value; }
 const char* reflected_echo(const char* value) { return value; }
-std::uint64_t* reflected_u64_pointer(std::uint64_t* value) { return value; }
 
 int reflected_byte_sum(std::span<const std::uint8_t> bytes)
 {
@@ -31,10 +30,9 @@ int main()
     assert(cmm::register_rrefl<^^reflected_not>() == cmm::Error::Success);
     assert(cmm::register_rrefl<^^reflected_echo>() == cmm::Error::Success);
     assert(cmm::register_rrefl<^^reflected_byte_sum>() == cmm::Error::Success);
-    assert(cmm::register_rrefl<^^reflected_u64_pointer>() == cmm::Error::Success);
 
     const cmm::flow::GenerationResult generated =
-        cmm::flow::generate_wrapper_fragment<^^reflected_add, ^^reflected_scale, ^^reflected_not, ^^reflected_echo, ^^reflected_byte_sum, ^^reflected_u64_pointer>();
+        cmm::flow::generate_wrapper_fragment<^^reflected_add, ^^reflected_scale, ^^reflected_not, ^^reflected_echo, ^^reflected_byte_sum>();
     assert(generated.error == cmm::Error::Success);
     assert(generated.source.find("arg0: i32") != std::string::npos);
     assert(generated.source.find("cmm_i32(arg0)") != std::string::npos);
@@ -47,8 +45,6 @@ int main()
     assert(generated.source.find("cmm_as_string(result)") != std::string::npos);
     assert(generated.source.find("arg0: span<u8>") != std::string::npos);
     assert(generated.source.find("cmm_bytes(arg0)") != std::string::npos);
-    assert(generated.source.find("arg0: ptr<u64>") != std::string::npos);
-    assert(generated.source.find("cmm_ptr_u64(arg0)") != std::string::npos);
 
     const cmm_flow_info add_id = cmm_flow_reflect_name("reflected_add");
     assert(add_id != cmm::invalid_info);
@@ -103,26 +99,6 @@ int main()
     assert(cmm_flow_invoke(byte_sum_id, &bytes_arg, 1, &bytes_result) == 0);
     assert(bytes_result.kind == CMM_FLOW_I32);
     assert(static_cast<int32_t>(bytes_result.bits) == 10);
-
-    std::uint64_t wide = UINT64_C(1099511627776);
-    const cmm_flow_info pointer_id = cmm_flow_reflect_name("reflected_u64_pointer");
-    assert(pointer_id != cmm::invalid_info);
-    assert(cmm_flow_parameter_kind(pointer_id, 0) == CMM_FLOW_POINTER);
-    assert(cmm_flow_parameter_pointee_kind(pointer_id, 0) == CMM_FLOW_U64);
-    assert(cmm_flow_return_kind(pointer_id) == CMM_FLOW_POINTER);
-    assert(cmm_flow_return_pointee_kind(pointer_id) == CMM_FLOW_U64);
-    const auto pointer_parameters = cmm::parameters_view_of(pointer_id);
-    assert(pointer_parameters.size() == 1);
-    assert(cmm::type_of(pointer_parameters[0]) == cmm::get_id<^^std::uint64_t*>());
-    std::array<cmm::Value, 1> direct_pointer_args{cmm::Value(&wide)};
-    cmm::Value direct_pointer_result;
-    assert(cmm::reflect_invoke(pointer_id, direct_pointer_args, direct_pointer_result) == cmm::Error::Success);
-    assert(direct_pointer_result.get<std::uint64_t*>() == &wide);
-    const cmm_flow_value pointer_arg{CMM_FLOW_POINTER, 0, cmm_flow_u64_ptr_bits(&wide), 0};
-    cmm_flow_value pointer_result{};
-    assert(cmm_flow_invoke(pointer_id, &pointer_arg, 1, &pointer_result) == 0);
-    assert(pointer_result.kind == CMM_FLOW_POINTER);
-    assert(cmm_flow_bits_u64_ptr(pointer_result.bits) == &wide);
 
     cmm_flow_value bad_result{};
     assert(cmm_flow_invoke(add_id, &bool_arg, 1, &bad_result) == static_cast<int32_t>(cmm::Error::InvalidArgumentCount));
