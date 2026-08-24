@@ -2,6 +2,7 @@
 #define CMM_FLOW_GENERATOR_HPP
 
 #include <array>
+#include <cstdint>
 #include <meta>
 #include <span>
 #include <string>
@@ -26,9 +27,13 @@ void register_value_dependency(cmm::Error& error)
 {
     if (error != cmm::Error::Success) return;
     constexpr std::meta::info decayed = std::meta::remove_cvref(TypeRefl);
-    if constexpr (std::meta::is_enum_type(decayed) ||
-                  std::meta::is_class_type(decayed) ||
-                  std::meta::is_union_type(decayed))
+    if constexpr (decayed == ^^std::span<const std::uint8_t>)
+    {
+        return;
+    }
+    else if constexpr (std::meta::is_enum_type(decayed) ||
+                       std::meta::is_class_type(decayed) ||
+                       std::meta::is_union_type(decayed))
     {
         error = cmm::register_rrefl<decayed>();
     }
