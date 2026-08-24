@@ -18,7 +18,7 @@ struct AbiType {
     std::string_view default_value;
 };
 
-bool abi_type(uint32_t kind, AbiType& out)
+bool abi_type(uint32_t kind, uint32_t pointee_kind, AbiType& out)
 {
     switch (kind)
     {
@@ -35,6 +35,15 @@ bool abi_type(uint32_t kind, AbiType& out)
         case CMM_FLOW_F64: out = {"f64", "cmm_f64", "cmm_as_f64", "0.0"}; return true;
         case CMM_FLOW_STRING: out = {"string", "cmm_string", "cmm_as_string", "\"\""}; return true;
         case CMM_FLOW_BYTES: out = {"span<u8>", "cmm_bytes", "cmm_as_byte_span", "cmm_as_byte_span(CmmFlowValue { kind: CMM_FLOW_BYTES, reserved: 0, bits: 0, extra: 0 })"}; return true;
+        case CMM_FLOW_POINTER:
+            if (pointee_kind == CMM_FLOW_I32) { out = {"ptr<i32>", "cmm_ptr_i32", "cmm_as_i32_ptr", "null"}; return true; }
+            return false;
+        case CMM_FLOW_MUT_REF:
+            if (pointee_kind == CMM_FLOW_I32) { out = {"ptr<i32>", "cmm_mut_ref_i32", "cmm_as_i32_ptr", "null"}; return true; }
+            return false;
+        case CMM_FLOW_CONST_REF:
+            if (pointee_kind == CMM_FLOW_I32) { out = {"ptr<i32>", "cmm_const_ref_i32", "cmm_as_i32_ptr", "null"}; return true; }
+            return false;
         default: return false;
     }
 }
@@ -56,10 +65,11 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
 {
     const uint64_t parameter_count = cmm_flow_parameter_count(function_id);
     const uint32_t return_kind = cmm_flow_return_kind(function_id);
+    const uint32_t return_pointee_kind = cmm_flow_return_pointee_kind(function_id);
     const bool returns_void = return_kind == CMM_FLOW_VOID;
 
     AbiType return_type{};
-    if (!returns_void && !abi_type(return_kind, return_type)) return cmm::Error::TypeMismatch;
+    if (!returns_void && !abi_type(return_kind, return_pointee_kind, return_type)) return cmm::Error::TypeMismatch;
 
     const std::string name = wrapper_name(function_id);
     const std::string result_name = "CmmResult_" + name;
@@ -73,7 +83,7 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
     for (uint64_t index = 0; index < parameter_count; ++index)
     {
         AbiType parameter_type{};
-        if (!abi_type(cmm_flow_parameter_kind(function_id, index), parameter_type)) return cmm::Error::InvalidArgumentType;
+        if (!abi_type(cmm_flow_parameter_kind(function_id, index), cmm_flow_parameter_pointee_kind(function_id, index), parameter_type)) return cmm::Error::InvalidArgumentType;
         if (index != 0) out << ", ";
         out << "arg" << index << ": " << parameter_type.flow_type;
     }
@@ -86,7 +96,7 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
         for (uint64_t index = 0; index < parameter_count; ++index)
         {
             AbiType parameter_type{};
-            abi_type(cmm_flow_parameter_kind(function_id, index), parameter_type);
+            abi_type(cmm_flow_parameter_kind(function_id, index), cmm_flow_parameter_pointee_kind(function_id, index), parameter_type);
             if (index != 0) out << ", ";
             out << parameter_type.pack << "(arg" << index << ')';
         }
