@@ -1,6 +1,7 @@
 #ifndef CMM_FLOW_H
 #define CMM_FLOW_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
@@ -61,8 +62,24 @@ cmm_flow_value cmm_flow_bytes(cmm_flow_span_u8 value);
 cmm_flow_span_u8 cmm_flow_as_bytes(cmm_flow_value value);
 uint64_t cmm_flow_byte_span_data(cmm_flow_span_u8 value);
 const uint8_t* cmm_flow_bits_u8_ptr(uint64_t bits);
-uint64_t cmm_flow_i32_ptr_bits(const int32_t* value);
-int32_t* cmm_flow_bits_i32_ptr(uint64_t bits);
+
+#define CMM_FLOW_DECLARE_PTR_BITS(name, type) \
+    uint64_t cmm_flow_##name##_ptr_bits(const type* value); \
+    type* cmm_flow_bits_##name##_ptr(uint64_t bits)
+
+CMM_FLOW_DECLARE_PTR_BITS(bool, bool);
+CMM_FLOW_DECLARE_PTR_BITS(i8, int8_t);
+CMM_FLOW_DECLARE_PTR_BITS(u8, uint8_t);
+CMM_FLOW_DECLARE_PTR_BITS(i16, int16_t);
+CMM_FLOW_DECLARE_PTR_BITS(u16, uint16_t);
+CMM_FLOW_DECLARE_PTR_BITS(i32, int32_t);
+CMM_FLOW_DECLARE_PTR_BITS(u32, uint32_t);
+CMM_FLOW_DECLARE_PTR_BITS(i64, int64_t);
+CMM_FLOW_DECLARE_PTR_BITS(u64, uint64_t);
+CMM_FLOW_DECLARE_PTR_BITS(f32, float);
+CMM_FLOW_DECLARE_PTR_BITS(f64, double);
+
+#undef CMM_FLOW_DECLARE_PTR_BITS
 
 #ifdef __cplusplus
 }
