@@ -31,7 +31,7 @@ struct CmmFlowValue {
 }
 
 struct CmmObject {
-    handle: u64
+    object_id: u64
 }
 
 extern {
@@ -147,7 +147,7 @@ export function cmm_as_f32(value: CmmFlowValue) -> f32 { return cmm_flow_bits_f3
 export function cmm_as_f64(value: CmmFlowValue) -> f64 { return cmm_flow_bits_f64(value.bits) }
 export function cmm_as_bool(value: CmmFlowValue) -> bool { return value.bits != 0 }
 export function cmm_as_string(value: CmmFlowValue) -> string { return cmm_flow_bits_string(value.bits) }
-export function cmm_as_object(value: CmmFlowValue) -> CmmObject { return CmmObject { handle: value.bits } }
+export function cmm_as_object(value: CmmFlowValue) -> CmmObject { return CmmObject { object_id: value.bits } }
 export function cmm_as_bool_ptr(value: CmmFlowValue) -> ptr<bool> { return cmm_flow_bits_bool_ptr(value.bits) }
 export function cmm_as_i8_ptr(value: CmmFlowValue) -> ptr<i8> { return cmm_flow_bits_i8_ptr(value.bits) }
 export function cmm_as_u8_ptr(value: CmmFlowValue) -> ptr<u8> { return cmm_flow_bits_u8_ptr(value.bits) }
