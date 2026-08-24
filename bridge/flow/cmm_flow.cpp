@@ -41,6 +41,11 @@ uint32_t width_kind(bool is_signed, std::size_t size)
     }
 }
 
+bool is_nested_borrow_target(cmm::info type_id)
+{
+    return cmm::is_pointer_type(type_id) || cmm::is_reference_type(type_id);
+}
+
 uint32_t kind_of(cmm::info type_id)
 {
     if (is_type<void>(type_id)) return CMM_FLOW_VOID;
@@ -56,15 +61,15 @@ uint32_t kind_of(cmm::info type_id)
     if (cmm::is_lvalue_reference_type(type_id))
     {
         const cmm::info target = cmm::underlying_type(type_id);
-        if (cmm::is_volatile_type(target)) return CMM_FLOW_UNSUPPORTED;
+        if (cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
         return cmm::is_const_type(target) ? CMM_FLOW_CONST_REF : CMM_FLOW_MUT_REF;
     }
     if (cmm::is_rvalue_reference_type(type_id)) return CMM_FLOW_UNSUPPORTED;
     if (cmm::is_pointer_type(type_id))
     {
         const cmm::info target = cmm::underlying_type(type_id);
-        if (cmm::is_volatile_type(target)) return CMM_FLOW_UNSUPPORTED;
-        return CMM_FLOW_POINTER;
+        if (cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
+        return cmm::is_const_type(target) ? CMM_FLOW_CONST_POINTER : CMM_FLOW_POINTER;
     }
     if (cmm::is_integral_type(type_id)) return width_kind(cmm::is_signed_type(type_id), cmm::size_of(type_id));
     return CMM_FLOW_UNSUPPORTED;
@@ -74,7 +79,7 @@ uint32_t pointee_kind(cmm::info type_id)
 {
     if (!cmm::is_pointer_type(type_id) && !cmm::is_reference_type(type_id)) return CMM_FLOW_UNSUPPORTED;
     const cmm::info target = cmm::underlying_type(type_id);
-    if (cmm::is_volatile_type(target)) return CMM_FLOW_UNSUPPORTED;
+    if (cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return CMM_FLOW_UNSUPPORTED;
     return kind_of(target);
 }
 
@@ -214,7 +219,9 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
     }
     if (cmm::is_pointer_type(return_type))
     {
-        output.kind = CMM_FLOW_POINTER;
+        const cmm::info target = cmm::underlying_type(return_type);
+        if (cmm::is_volatile_type(target) || is_nested_borrow_target(target)) return cmm::Error::TypeMismatch;
+        output.kind = cmm::is_const_type(target) ? CMM_FLOW_CONST_POINTER : CMM_FLOW_POINTER;
         output.bits = static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(input.object_pointer()));
         return cmm::Error::Success;
     }
