@@ -87,45 +87,51 @@ cmm::Error decode_integer(const cmm_flow_value& input, uint32_t expected_kind, c
 }
 
 template <typename T>
-bool decode_scalar_borrow(cmm::info expected_type, const cmm_flow_value& input, cmm::Value& output, cmm::Error& error)
+cmm::Error decode_scalar_borrow(cmm::info expected_type, const cmm_flow_value& input, cmm::Value& output)
 {
-    if (is_type<T*>(expected_type))
+    const auto address = static_cast<std::uintptr_t>(input.bits);
+
+    if (cmm::is_pointer_type(expected_type))
     {
-        output = cmm::Value(reinterpret_cast<T*>(static_cast<std::uintptr_t>(input.bits)));
-        error = cmm::Error::Success;
-        return true;
-    }
-    if (is_type<const T*>(expected_type))
-    {
-        output = cmm::Value(reinterpret_cast<const T*>(static_cast<std::uintptr_t>(input.bits)));
-        error = cmm::Error::Success;
-        return true;
-    }
-    if (is_type<T&>(expected_type))
-    {
-        T* value = reinterpret_cast<T*>(static_cast<std::uintptr_t>(input.bits));
-        if (!value)
+        const cmm::info target = cmm::underlying_type(expected_type);
+        if (cmm::is_const_type(target))
         {
-            error = cmm::Error::NullValue;
-            return true;
+            output = cmm::Value(reinterpret_cast<const T*>(address));
         }
-        output = cmm::Value::ref(*value);
-        error = cmm::Error::Success;
-        return true;
-    }
-    if (is_type<const T&>(expected_type))
-    {
-        const T* value = reinterpret_cast<const T*>(static_cast<std::uintptr_t>(input.bits));
-        if (!value)
+        else
         {
-            error = cmm::Error::NullValue;
-            return true;
+            output = cmm::Value(reinterpret_cast<T*>(address));
         }
-        output = cmm::Value::cref(*value);
-        error = cmm::Error::Success;
-        return true;
+        return cmm::Error::Success;
     }
-    return false;
+
+    if (!cmm::is_lvalue_reference_type(expected_type)) return cmm::Error::InvalidArgumentType;
+    if (address == 0) return cmm::Error::NullValue;
+
+    T* value = reinterpret_cast<T*>(address);
+    const cmm::info target = cmm::underlying_type(expected_type);
+    if (cmm::is_const_type(target)) output = cmm::Value::cref(*value);
+    else output = cmm::Value::ref(*value);
+    return cmm::Error::Success;
+}
+
+cmm::Error decode_borrow(cmm::info expected_type, const cmm_flow_value& input, cmm::Value& output)
+{
+    switch (pointee_kind(expected_type))
+    {
+        case CMM_FLOW_BOOL: return decode_scalar_borrow<bool>(expected_type, input, output);
+        case CMM_FLOW_I8: return decode_scalar_borrow<std::int8_t>(expected_type, input, output);
+        case CMM_FLOW_U8: return decode_scalar_borrow<std::uint8_t>(expected_type, input, output);
+        case CMM_FLOW_I16: return decode_scalar_borrow<std::int16_t>(expected_type, input, output);
+        case CMM_FLOW_U16: return decode_scalar_borrow<std::uint16_t>(expected_type, input, output);
+        case CMM_FLOW_I32: return decode_scalar_borrow<std::int32_t>(expected_type, input, output);
+        case CMM_FLOW_U32: return decode_scalar_borrow<std::uint32_t>(expected_type, input, output);
+        case CMM_FLOW_I64: return decode_scalar_borrow<std::int64_t>(expected_type, input, output);
+        case CMM_FLOW_U64: return decode_scalar_borrow<std::uint64_t>(expected_type, input, output);
+        case CMM_FLOW_F32: return decode_scalar_borrow<float>(expected_type, input, output);
+        case CMM_FLOW_F64: return decode_scalar_borrow<double>(expected_type, input, output);
+        default: return cmm::Error::InvalidArgumentType;
+    }
 }
 
 cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cmm::Value& output)
@@ -158,21 +164,10 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
         output = cmm::Value(reinterpret_cast<void*>(static_cast<std::uintptr_t>(input.bits)));
         return cmm::Error::Success;
     }
-
-    cmm::Error borrow_error = cmm::Error::InvalidArgumentType;
-    if (decode_scalar_borrow<bool>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<signed char>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<unsigned char>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<short>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<unsigned short>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<int>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<unsigned int>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<long>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<unsigned long>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<long long>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<unsigned long long>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<float>(expected_type, input, output, borrow_error)) return borrow_error;
-    if (decode_scalar_borrow<double>(expected_type, input, output, borrow_error)) return borrow_error;
+    if (cmm::is_pointer_type(expected_type) || cmm::is_lvalue_reference_type(expected_type))
+    {
+        return decode_borrow(expected_type, input, output);
+    }
     return cmm::Error::InvalidArgumentType;
 }
 
@@ -267,6 +262,7 @@ extern "C" int32_t cmm_flow_invoke(cmm_flow_info function_id, const cmm_flow_val
 {
     if (!result) return static_cast<int32_t>(cmm::Error::NullValue);
     if (argument_count != 0 && !arguments) return static_cast<int32_t>(cmm::Error::NullValue);
+
     const auto parameters = cmm::parameters_view_of(function_id);
     if (parameters.size() != argument_count) return static_cast<int32_t>(cmm::Error::InvalidArgumentCount);
 
