@@ -29,6 +29,7 @@ typedef enum cmm_flow_kind {
     CMM_FLOW_BYTES = 14,
     CMM_FLOW_MUT_REF = 15,
     CMM_FLOW_CONST_REF = 16,
+    CMM_FLOW_CONST_POINTER = 17,
     CMM_FLOW_UNSUPPORTED = 255
 } cmm_flow_kind;
 
