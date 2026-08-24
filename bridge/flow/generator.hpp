@@ -5,6 +5,7 @@
 #include <meta>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "cmm/meta.hpp"
 
@@ -57,6 +58,21 @@ GenerationResult generate_wrapper_fragment()
 
     const std::array<cmm::info, sizeof...(Functions)> ids{cmm::get_id<Functions>()...};
     return generate_wrapper_fragment(ids);
+}
+
+template <std::meta::info Class>
+GenerationResult generate_class_wrapper_fragment()
+{
+    static_assert(std::meta::is_class_type(Class) || std::meta::is_union_type(Class));
+    const cmm::Error registration_error = cmm::register_rrefl<Class>();
+    if (registration_error != cmm::Error::Success) return GenerationResult{registration_error, {}};
+
+    std::vector<cmm::info> functions;
+    for (cmm::info member : cmm::members_view_of(cmm::get_id<Class>()))
+    {
+        if (cmm::is_function(member)) functions.push_back(member);
+    }
+    return generate_wrapper_fragment(functions);
 }
 
 template <std::meta::info... Functions>
