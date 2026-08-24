@@ -77,6 +77,7 @@ int main()
     std::cout << generated.source;
     std::cout << "extern {\n";
     std::cout << "    function cmm_flow_e2e_register() -> i32\n";
+    std::cout << "    function cmm_flow_e2e_destroyed_count() -> i32\n";
     std::cout << "}\n\n";
     std::cout << "function main() -> i32 {\n";
     std::cout << "    let registration_error: i32 = cmm_flow_e2e_register()\n";
@@ -129,9 +130,18 @@ int main()
     std::cout << "    let value_result = " << value_method_name << "(counter)\n";
     std::cout << "    if value_result.error != 0 or value_result.value != 15 { return 33 }\n";
     std::cout << "    let destroy_result = " << dtor_name << "(counter)\n";
-    std::cout << "    if destroy_result.error != 0 { return 34 }\n";
+    std::cout << "    if destroy_result.error != 0 or cmm_flow_e2e_destroyed_count() != 1 { return 34 }\n";
     std::cout << "    let after_destroy = " << value_method_name << "(counter)\n";
     std::cout << "    if after_destroy.error == 0 { return 35 }\n";
+    std::cout << "    let owned_ctor_result = " << ctor_name << "(21)\n";
+    std::cout << "    if owned_ctor_result.error != 0 or owned_ctor_result.value.object_id == 0 { return 36 }\n";
+    std::cout << "    let owned_counter = owned_ctor_result.value\n";
+    std::cout << "    let release_error = cmm_release(owned_counter, " << class_id << ")\n";
+    std::cout << "    if release_error != 0 or cmm_flow_e2e_destroyed_count() != 2 { return 37 }\n";
+    std::cout << "    let after_release = " << value_method_name << "(owned_counter)\n";
+    std::cout << "    if after_release.error == 0 { return 38 }\n";
+    std::cout << "    let second_release = cmm_release(owned_counter, " << class_id << ")\n";
+    std::cout << "    if second_release == 0 or cmm_flow_e2e_destroyed_count() != 2 { return 39 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
     return 0;
