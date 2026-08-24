@@ -73,7 +73,7 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] constexpr-capable Class aggregate storage
 - [x] generated static class member/base/name spans
 - [x] remove transitional runtime-owned Function/Enum fallback containers
-- [ ] dependency-stub / full-entity split
+- [x] dependency-stub / full-entity split
 - [ ] consteval entity/name indexes and non-templated runtime `RegistryView`
 - [ ] eliminate startup registration without semantic regression
 - [ ] GCC sanitizer and Clang/P2996 validation on the new backend
