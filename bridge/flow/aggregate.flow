@@ -1,0 +1,24 @@
+# Opaque by-value aggregate transport. Aggregate layout never crosses the C ABI;
+# the bridge owns an exact typed cmm::Value copy behind aggregate_id.
+
+const CMM_FLOW_AGGREGATE: u32 = 19
+
+struct CmmAggregate {
+    aggregate_id: u64
+}
+
+extern {
+    function cmm_flow_release_aggregate(aggregate_handle: u64, type_id: u64) -> i32
+}
+
+export function cmm_aggregate(value: CmmAggregate) -> CmmFlowValue {
+    return CmmFlowValue { kind: CMM_FLOW_AGGREGATE, reserved: 0, bits: value.aggregate_id, extra: 0 }
+}
+
+export function cmm_as_aggregate(value: CmmFlowValue) -> CmmAggregate {
+    return CmmAggregate { aggregate_id: value.bits }
+}
+
+export function cmm_release_aggregate(value: CmmAggregate, type_id: u64) -> i32 {
+    return cmm_flow_release_aggregate(value.aggregate_id, type_id)
+}
