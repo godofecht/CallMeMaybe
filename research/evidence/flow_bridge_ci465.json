@@ -1,0 +1,17 @@
+{
+  "kind": "flow_bridge_footprint",
+  "source_pr": 4,
+  "source_head_sha": "b704486633852032521d6274028ed452783e9221",
+  "workflow_run_id": 32747025746,
+  "workflow_run_number": 465,
+  "compiler": "GNU 16.2.0",
+  "runner_os": "Ubuntu 24.04.4",
+  "runner_architecture": "x86_64",
+  "flow_compiler_sha": "4be80d962439f67936da041748bc9e4fed6c0708",
+  "fixture_binding_count": 21,
+  "generated_wrapper_bytes": 16493,
+  "cmm_flow_value_bytes": 24,
+  "cmm_flow_span_u8_bytes": 16,
+  "cmm_flow_info_bytes": 8,
+  "claim_scope": "Deterministic generated-binding footprint and ABI storage sizes only. Shared CI is not used for runtime latency claims."
+}
