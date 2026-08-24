@@ -1,0 +1,168 @@
+#ifndef CALLMEMAYBE_STATIC_META_HPP
+#define CALLMEMAYBE_STATIC_META_HPP
+
+#include <cstddef>
+#include <span>
+#include <string_view>
+#include <type_traits>
+#include <variant>
+#include <vector>
+
+#include "cmm/info.hpp"
+#include "cmm/detail/static_active_registry.hpp"
+
+namespace cmm {
+
+inline cmm::info reflect_name(std::string_view name)
+{
+    return detail::active_static_registry().get_id_by_name(name);
+}
+
+namespace detail {
+
+inline bool static_valid(cmm::info i)
+{
+    return i != invalid_info && active_static_registry().contains(i);
+}
+
+template <typename Visitor>
+inline auto visit_static_entity(cmm::info i, Visitor&& visitor)
+{
+    return std::visit(std::forward<Visitor>(visitor), active_static_registry().get_entity(i));
+}
+
+} // namespace detail
+
+inline std::string_view identifier_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return {};
+    return detail::active_static_registry().get_entity_name(i);
+}
+
+inline std::string_view display_string_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return {};
+    return detail::active_static_registry().get_entity_display_name(i);
+}
+
+inline cmm::info type_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return invalid_info;
+    return detail::visit_static_entity(i, [i](const auto& arg) -> cmm::info
+    {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, detail::DataMember> ||
+                      std::is_same_v<T, detail::Parameter> ||
+                      std::is_same_v<T, detail::Variable> ||
+                      std::is_same_v<T, detail::Base>)
+        {
+            return arg.type_id();
+        }
+        else if constexpr (std::is_same_v<T, detail::Enumerator>)
+        {
+            return arg.parent_id();
+        }
+        else if constexpr (std::is_base_of_v<detail::Type, T>)
+        {
+            return i;
+        }
+        return invalid_info;
+    });
+}
+
+inline cmm::info parent_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return invalid_info;
+    return detail::visit_static_entity(i, [](const auto& arg) -> cmm::info
+    {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_same_v<T, detail::DataMember> ||
+                      std::is_same_v<T, detail::Function> ||
+                      std::is_same_v<T, detail::Enumerator> ||
+                      std::is_same_v<T, detail::Parameter> ||
+                      std::is_same_v<T, detail::Base>)
+        {
+            return arg.parent_id();
+        }
+        return invalid_info;
+    });
+}
+
+inline std::span<const cmm::info> members_view_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return {};
+    const auto* cls = detail::active_static_registry().try_get_as<detail::Class>(i);
+    return cls ? cls->members() : std::span<const cmm::info>{};
+}
+
+inline std::vector<cmm::info> members_of(cmm::info i)
+{
+    const auto view = members_view_of(i);
+    return {view.begin(), view.end()};
+}
+
+inline std::span<const cmm::info> nonstatic_data_members_view_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return {};
+    const auto* cls = detail::active_static_registry().try_get_as<detail::Class>(i);
+    return cls ? cls->nonstatic_data_members() : std::span<const cmm::info>{};
+}
+
+inline std::vector<cmm::info> nonstatic_data_members_of(cmm::info i)
+{
+    const auto view = nonstatic_data_members_view_of(i);
+    return {view.begin(), view.end()};
+}
+
+inline std::size_t size_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return 0;
+    return detail::visit_static_entity(i, [](const auto& arg) -> std::size_t
+    {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_base_of_v<detail::Type, T>) return arg.size();
+        return 0;
+    });
+}
+
+inline std::size_t alignment_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return 0;
+    return detail::visit_static_entity(i, [](const auto& arg) -> std::size_t
+    {
+        using T = std::decay_t<decltype(arg)>;
+        if constexpr (std::is_base_of_v<detail::Type, T>) return arg.alignment();
+        return 0;
+    });
+}
+
+inline cmm::Error try_offset_of(cmm::info i, std::size_t& out)
+{
+    if (!detail::static_valid(i)) return cmm::Error::EntityNotFound;
+    const auto* member = detail::active_static_registry().try_get_as<detail::DataMember>(i);
+    if (!member) return cmm::Error::TypeMismatch;
+    out = static_cast<std::size_t>(member->offset_bytes());
+    return cmm::Error::Success;
+}
+
+inline std::size_t offset_of(cmm::info i)
+{
+    std::size_t value = 0;
+    (void)try_offset_of(i, value);
+    return value;
+}
+
+namespace lookup {
+
+inline cmm::info get_member(cmm::info class_id, std::string_view name)
+{
+    if (!detail::static_valid(class_id)) return invalid_info;
+    const auto* cls = detail::active_static_registry().try_get_as<detail::Class>(class_id);
+    return cls ? cls->get_member_by_name(name) : invalid_info;
+}
+
+} // namespace lookup
+
+} // namespace cmm
+
+#endif // CALLMEMAYBE_STATIC_META_HPP
