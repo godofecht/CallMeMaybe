@@ -12,11 +12,30 @@ namespace cmm::flow {
 namespace {
 
 struct AbiType {
-    std::string_view flow_type;
-    std::string_view pack;
-    std::string_view unpack;
-    std::string_view default_value;
+    std::string flow_type;
+    std::string pack;
+    std::string unpack;
+    std::string default_value;
 };
+
+bool scalar_borrow_type(uint32_t kind, std::string_view& flow_type, std::string_view& suffix)
+{
+    switch (kind)
+    {
+        case CMM_FLOW_BOOL: flow_type = "bool"; suffix = "bool"; return true;
+        case CMM_FLOW_I8: flow_type = "i8"; suffix = "i8"; return true;
+        case CMM_FLOW_U8: flow_type = "u8"; suffix = "u8"; return true;
+        case CMM_FLOW_I16: flow_type = "i16"; suffix = "i16"; return true;
+        case CMM_FLOW_U16: flow_type = "u16"; suffix = "u16"; return true;
+        case CMM_FLOW_I32: flow_type = "i32"; suffix = "i32"; return true;
+        case CMM_FLOW_U32: flow_type = "u32"; suffix = "u32"; return true;
+        case CMM_FLOW_I64: flow_type = "i64"; suffix = "i64"; return true;
+        case CMM_FLOW_U64: flow_type = "u64"; suffix = "u64"; return true;
+        case CMM_FLOW_F32: flow_type = "f32"; suffix = "f32"; return true;
+        case CMM_FLOW_F64: flow_type = "f64"; suffix = "f64"; return true;
+        default: return false;
+    }
+}
 
 bool abi_type(uint32_t kind, uint32_t pointee_kind, AbiType& out)
 {
@@ -36,14 +55,20 @@ bool abi_type(uint32_t kind, uint32_t pointee_kind, AbiType& out)
         case CMM_FLOW_STRING: out = {"string", "cmm_string", "cmm_as_string", "\"\""}; return true;
         case CMM_FLOW_BYTES: out = {"span<u8>", "cmm_bytes", "cmm_as_byte_span", "cmm_as_byte_span(CmmFlowValue { kind: CMM_FLOW_BYTES, reserved: 0, bits: 0, extra: 0 })"}; return true;
         case CMM_FLOW_POINTER:
-            if (pointee_kind == CMM_FLOW_I32) { out = {"ptr<i32>", "cmm_ptr_i32", "cmm_as_i32_ptr", "null"}; return true; }
-            return false;
         case CMM_FLOW_MUT_REF:
-            if (pointee_kind == CMM_FLOW_I32) { out = {"ptr<i32>", "cmm_mut_ref_i32", "cmm_as_i32_ptr", "null"}; return true; }
-            return false;
         case CMM_FLOW_CONST_REF:
-            if (pointee_kind == CMM_FLOW_I32) { out = {"ptr<i32>", "cmm_const_ref_i32", "cmm_as_i32_ptr", "null"}; return true; }
-            return false;
+        {
+            std::string_view scalar;
+            std::string_view suffix;
+            if (!scalar_borrow_type(pointee_kind, scalar, suffix)) return false;
+            out.flow_type = "ptr<" + std::string(scalar) + ">";
+            if (kind == CMM_FLOW_POINTER) out.pack = "cmm_ptr_" + std::string(suffix);
+            else if (kind == CMM_FLOW_MUT_REF) out.pack = "cmm_mut_ref_" + std::string(suffix);
+            else out.pack = "cmm_const_ref_" + std::string(suffix);
+            out.unpack = "cmm_as_" + std::string(suffix) + "_ptr";
+            out.default_value = "null";
+            return true;
+        }
         default: return false;
     }
 }
