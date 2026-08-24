@@ -3,52 +3,61 @@
 
 #include "cmm/annotations.hpp"
 #include "cmm/detail/static_active_registry.hpp"
-#include "cmm/detail/static_single_member_registry.hpp"
+#include "cmm/detail/static_two_class_registry.hpp"
 #include "cmm/static_meta.hpp"
 
-struct StaticWidget
+struct StaticCollisionA
 {
     [[=cmm::reflectable]] int value = 0;
 };
 
-CMM_USE_STATIC_REGISTRY(cmm::detail::make_single_member_static_registry<^^StaticWidget>())
+struct StaticCollisionB
+{
+    double prefix = 0.0;
+    [[=cmm::reflectable]] int value = 0;
+};
+
+CMM_USE_STATIC_REGISTRY(
+    cmm::detail::make_two_class_static_registry<^^StaticCollisionA, ^^StaticCollisionB>())
 
 int main()
 {
-    const cmm::info widget_id = cmm::detail::hash_entity(^^StaticWidget);
+    const cmm::info a_id = cmm::detail::hash_entity(^^StaticCollisionA);
+    const cmm::info b_id = cmm::detail::hash_entity(^^StaticCollisionB);
+    const cmm::info a_value = cmm::detail::SingleMemberStaticMetadata<^^StaticCollisionA>::member_id;
+    const cmm::info b_value = cmm::detail::SingleMemberStaticMetadata<^^StaticCollisionB>::member_id;
+    const cmm::info int_id = cmm::detail::hash_entity(^^int);
 
-    static constexpr auto members = std::define_static_array(
-        std::meta::members_of(^^StaticWidget, std::meta::access_context::unchecked()));
-    cmm::info value_id = cmm::invalid_info;
-    cmm::info int_id = cmm::invalid_info;
-    template for (constexpr std::meta::info member : members)
-    {
-        if constexpr (cmm::is_reflectable(member) && std::meta::is_nonstatic_data_member(member))
-        {
-            value_id = cmm::detail::hash_entity(member);
-            int_id = cmm::detail::hash_entity(std::meta::type_of(member));
-        }
-    }
+    if (cmm::reflect_name("StaticCollisionA") != a_id) return 1;
+    if (cmm::reflect_name("StaticCollisionB") != b_id) return 2;
+    if (cmm::reflect_name("value") != cmm::invalid_info) return 3;
+    if (cmm::reflect_name("int") != int_id) return 4;
 
-    if (cmm::reflect_name("StaticWidget") != widget_id) return 1;
-    if (cmm::reflect_name("value") != value_id) return 2;
-    if (cmm::reflect_name("int") != int_id) return 3;
-    if (cmm::identifier_of(value_id) != std::string_view("value")) return 4;
-    if (cmm::display_string_of(widget_id) != std::string_view("StaticWidget")) return 5;
-    if (cmm::type_of(value_id) != int_id) return 6;
-    if (cmm::type_of(int_id) != int_id) return 7;
-    if (cmm::parent_of(value_id) != widget_id) return 8;
+    if (a_value == b_value) return 5;
+    if (cmm::identifier_of(a_value) != std::string_view("value")) return 6;
+    if (cmm::identifier_of(b_value) != std::string_view("value")) return 7;
+    if (cmm::parent_of(a_value) != a_id) return 8;
+    if (cmm::parent_of(b_value) != b_id) return 9;
+    if (cmm::type_of(a_value) != int_id || cmm::type_of(b_value) != int_id) return 10;
+    if (cmm::type_of(int_id) != int_id) return 11;
 
-    const auto member_view = cmm::members_view_of(widget_id);
-    if (member_view.size() != 1 || member_view[0] != value_id) return 9;
-    const auto data_member_view = cmm::nonstatic_data_members_view_of(widget_id);
-    if (data_member_view.size() != 1 || data_member_view[0] != value_id) return 10;
-    if (cmm::lookup::get_member(widget_id, "value") != value_id) return 11;
-    if (cmm::offset_of(value_id) != offsetof(StaticWidget, value)) return 12;
-    if (cmm::size_of(widget_id) != sizeof(StaticWidget)) return 13;
-    if (cmm::alignment_of(widget_id) != alignof(StaticWidget)) return 14;
-    if (cmm::size_of(int_id) != sizeof(int)) return 15;
-    if (cmm::alignment_of(int_id) != alignof(int)) return 16;
+    const auto a_members = cmm::members_view_of(a_id);
+    const auto b_members = cmm::members_view_of(b_id);
+    if (a_members.size() != 1 || a_members[0] != a_value) return 12;
+    if (b_members.size() != 1 || b_members[0] != b_value) return 13;
+    if (cmm::lookup::get_member(a_id, "value") != a_value) return 14;
+    if (cmm::lookup::get_member(b_id, "value") != b_value) return 15;
+
+    if (cmm::offset_of(a_value) != offsetof(StaticCollisionA, value)) return 16;
+    if (cmm::offset_of(b_value) != offsetof(StaticCollisionB, value)) return 17;
+    if (cmm::offset_of(a_value) == cmm::offset_of(b_value)) return 18;
+
+    if (cmm::size_of(a_id) != sizeof(StaticCollisionA)) return 19;
+    if (cmm::alignment_of(a_id) != alignof(StaticCollisionA)) return 20;
+    if (cmm::size_of(b_id) != sizeof(StaticCollisionB)) return 21;
+    if (cmm::alignment_of(b_id) != alignof(StaticCollisionB)) return 22;
+    if (cmm::size_of(int_id) != sizeof(int)) return 23;
+    if (cmm::alignment_of(int_id) != alignof(int)) return 24;
 
     return 0;
 }
