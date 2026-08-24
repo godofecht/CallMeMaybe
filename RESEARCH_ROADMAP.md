@@ -80,7 +80,8 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] dependency-stub / full-entity split
 - [x] consteval entity/name indexes and non-templated runtime `RegistryView`
 - [ ] eliminate startup registration without semantic regression
-- [ ] GCC sanitizer and Clang/P2996 validation on the new backend
+- [x] GCC 16.2 release + ASan/UBSan validation on the implemented static backend
+- [ ] Clang/P2996 validation on the new backend
 - [ ] benchmark against the stabilized runtime backend
 
 ### PR #6 — Evidence-backed research report
