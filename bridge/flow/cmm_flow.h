@@ -31,6 +31,7 @@ typedef enum cmm_flow_kind {
     CMM_FLOW_CONST_REF = 16,
     CMM_FLOW_CONST_POINTER = 17,
     CMM_FLOW_OBJECT = 18,
+    CMM_FLOW_AGGREGATE = 19,
     CMM_FLOW_UNSUPPORTED = 255
 } cmm_flow_kind;
 
@@ -58,6 +59,7 @@ bool cmm_flow_is_destructor(cmm_flow_info function_id);
 int32_t cmm_flow_invoke(cmm_flow_info function_id, const cmm_flow_value* arguments, uint64_t argument_count, cmm_flow_value* result);
 int32_t cmm_flow_invoke_method(cmm_flow_info function_id, uint64_t object_handle, const cmm_flow_value* arguments, uint64_t argument_count, cmm_flow_value* result);
 int32_t cmm_flow_release_object(uint64_t object_handle, cmm_flow_info type_id);
+int32_t cmm_flow_release_aggregate(uint64_t aggregate_handle, cmm_flow_info type_id);
 const char* cmm_flow_error_string(int32_t error);
 uint64_t cmm_flow_f32_bits(float value);
 uint64_t cmm_flow_f64_bits(double value);
