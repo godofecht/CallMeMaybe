@@ -38,4 +38,20 @@ inline std::span<const std::uint8_t> cmm_e2e_bytes()
     return bytes;
 }
 
+inline int* cmm_e2e_pointer(int* value)
+{
+    return value;
+}
+
+inline int& cmm_e2e_mut_ref(int& value)
+{
+    value += 5;
+    return value;
+}
+
+inline const int& cmm_e2e_const_ref(const int& value)
+{
+    return value;
+}
+
 #endif
