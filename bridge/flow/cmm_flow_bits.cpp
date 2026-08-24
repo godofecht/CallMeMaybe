@@ -35,21 +35,13 @@ extern "C" const char* cmm_flow_bits_string(uint64_t bits)
 
 extern "C" cmm_flow_value cmm_flow_bytes(cmm_flow_span_u8 value)
 {
-    return cmm_flow_value{
-        CMM_FLOW_BYTES,
-        0,
-        static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value.data)),
-        static_cast<uint64_t>(value.len)
-    };
+    return cmm_flow_value{CMM_FLOW_BYTES, 0, static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value.data)), static_cast<uint64_t>(value.len)};
 }
 
 extern "C" cmm_flow_span_u8 cmm_flow_as_bytes(cmm_flow_value value)
 {
     if (value.kind != CMM_FLOW_BYTES) return cmm_flow_span_u8{nullptr, 0};
-    return cmm_flow_span_u8{
-        reinterpret_cast<const uint8_t*>(static_cast<std::uintptr_t>(value.bits)),
-        static_cast<int64_t>(value.extra)
-    };
+    return cmm_flow_span_u8{reinterpret_cast<const uint8_t*>(static_cast<std::uintptr_t>(value.bits)), static_cast<int64_t>(value.extra)};
 }
 
 extern "C" uint64_t cmm_flow_byte_span_data(cmm_flow_span_u8 value)
@@ -60,4 +52,14 @@ extern "C" uint64_t cmm_flow_byte_span_data(cmm_flow_span_u8 value)
 extern "C" const uint8_t* cmm_flow_bits_u8_ptr(uint64_t bits)
 {
     return reinterpret_cast<const uint8_t*>(static_cast<std::uintptr_t>(bits));
+}
+
+extern "C" uint64_t cmm_flow_i32_ptr_bits(const int32_t* value)
+{
+    return static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value));
+}
+
+extern "C" int32_t* cmm_flow_bits_i32_ptr(uint64_t bits)
+{
+    return reinterpret_cast<int32_t*>(static_cast<std::uintptr_t>(bits));
 }
