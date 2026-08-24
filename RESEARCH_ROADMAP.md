@@ -52,12 +52,13 @@ https://github.com/godofecht/CallMeMaybe/pull/4
 - [x] typed `int*`, `int&`, and `const int&` borrowing profile
 - [x] scalar pointer / lvalue-reference borrowing across bool, signed/unsigned integer widths, f32 and f64
 - [x] pointer cv-qualification, rvalue-reference and nested pointer/reference borrowing rules
+- [x] enum parameters and returns via reflected underlying scalar ABI
 - [x] native Flow `extern` declarations
 - [x] generated ergonomic typed Flow wrappers with explicit error-bearing results
 - [x] cross-boundary regression tests and sanitizer coverage
 - [x] pinned Flow compiler transpilation and C11 compile validation
 - [x] end-to-end linked Flow executable invoking reflected C++ functions
-- [ ] aggregates and enums
+- [ ] aggregates
 - [ ] methods / constructors
 - [ ] ownership-transfer profile
 
