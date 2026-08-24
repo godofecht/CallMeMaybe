@@ -54,12 +54,26 @@ extern "C" const uint8_t* cmm_flow_bits_u8_ptr(uint64_t bits)
     return reinterpret_cast<const uint8_t*>(static_cast<std::uintptr_t>(bits));
 }
 
-extern "C" uint64_t cmm_flow_i32_ptr_bits(const int32_t* value)
-{
-    return static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value));
-}
+#define CMM_FLOW_DEFINE_PTR_BITS(name, type) \
+    extern "C" uint64_t cmm_flow_##name##_ptr_bits(const type* value) \
+    { \
+        return static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value)); \
+    } \
+    extern "C" type* cmm_flow_bits_##name##_ptr(uint64_t bits) \
+    { \
+        return reinterpret_cast<type*>(static_cast<std::uintptr_t>(bits)); \
+    }
 
-extern "C" int32_t* cmm_flow_bits_i32_ptr(uint64_t bits)
-{
-    return reinterpret_cast<int32_t*>(static_cast<std::uintptr_t>(bits));
-}
+CMM_FLOW_DEFINE_PTR_BITS(bool, bool)
+CMM_FLOW_DEFINE_PTR_BITS(i8, int8_t)
+CMM_FLOW_DEFINE_PTR_BITS(u8, uint8_t)
+CMM_FLOW_DEFINE_PTR_BITS(i16, int16_t)
+CMM_FLOW_DEFINE_PTR_BITS(u16, uint16_t)
+CMM_FLOW_DEFINE_PTR_BITS(i32, int32_t)
+CMM_FLOW_DEFINE_PTR_BITS(u32, uint32_t)
+CMM_FLOW_DEFINE_PTR_BITS(i64, int64_t)
+CMM_FLOW_DEFINE_PTR_BITS(u64, uint64_t)
+CMM_FLOW_DEFINE_PTR_BITS(f32, float)
+CMM_FLOW_DEFINE_PTR_BITS(f64, double)
+
+#undef CMM_FLOW_DEFINE_PTR_BITS
