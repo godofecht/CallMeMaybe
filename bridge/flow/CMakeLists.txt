@@ -16,6 +16,9 @@ if(CMM_BUILD_TESTS)
     add_executable(cmm_flow_generate_fixture generate_fixture.cpp)
     target_link_libraries(cmm_flow_generate_fixture PRIVATE CallMeMaybe::flow_bridge)
 
+    add_executable(cmm_flow_metrics metrics.cpp)
+    target_link_libraries(cmm_flow_metrics PRIVATE CallMeMaybe::flow_bridge)
+
     add_library(cmm_flow_e2e_runtime STATIC e2e_runtime.cpp)
     target_link_libraries(cmm_flow_e2e_runtime PRIVATE CallMeMaybe::flow_bridge)
 endif()
