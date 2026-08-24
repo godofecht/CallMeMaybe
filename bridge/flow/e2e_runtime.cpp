@@ -9,3 +9,8 @@ extern "C" std::int32_t cmm_flow_e2e_register()
     if (error == cmm::Error::Success) error = cmm::register_rrefl<^^CmmE2eCounter>();
     return static_cast<std::int32_t>(error);
 }
+
+extern "C" std::int32_t cmm_flow_e2e_destroyed_count()
+{
+    return cmm_e2e_destroyed_count;
+}
