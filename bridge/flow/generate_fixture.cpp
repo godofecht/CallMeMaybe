@@ -6,7 +6,7 @@
 int main()
 {
     const cmm::flow::GenerationResult generated =
-        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref>();
+        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_pointer_u64, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool>();
     if (generated.error != cmm::Error::Success)
     {
         std::cerr << cmm::to_string(generated.error) << '\n';
@@ -22,6 +22,9 @@ int main()
     const std::string pointer_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_pointer>());
     const std::string mut_ref_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_mut_ref>());
     const std::string const_ref_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_const_ref>());
+    const std::string pointer_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_pointer_u64>());
+    const std::string mut_ref_f64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_mut_ref_f64>());
+    const std::string const_ref_bool_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_const_ref_bool>());
 
     std::cout << generated.source;
     std::cout << "extern {\n";
@@ -53,6 +56,15 @@ int main()
     std::cout << "    if mut_ref_result.error != 0 or borrowed != 42 or mut_ref_result.value[0] != 42 { return 20 }\n";
     std::cout << "    let const_ref_result = " << const_ref_name << "(&borrowed)\n";
     std::cout << "    if const_ref_result.error != 0 or const_ref_result.value[0] != 42 { return 21 }\n";
+    std::cout << "    let mut wide: u64 = 1099511627776\n";
+    std::cout << "    let wide_result = " << pointer_u64_name << "(&wide)\n";
+    std::cout << "    if wide_result.error != 0 or wide_result.value[0] != 1099511627776 { return 22 }\n";
+    std::cout << "    let mut real: f64 = 3.25\n";
+    std::cout << "    let real_result = " << mut_ref_f64_name << "(&real)\n";
+    std::cout << "    if real_result.error != 0 or real != 6.5 or real_result.value[0] != 6.5 { return 23 }\n";
+    std::cout << "    let mut truth: bool = true\n";
+    std::cout << "    let truth_result = " << const_ref_bool_name << "(&truth)\n";
+    std::cout << "    if truth_result.error != 0 or truth_result.value[0] != true { return 24 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
     return 0;
