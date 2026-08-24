@@ -1,6 +1,7 @@
 #ifndef CMM_FLOW_E2E_FIXTURE_HPP
 #define CMM_FLOW_E2E_FIXTURE_HPP
 
+#include <array>
 #include <cstdint>
 #include <span>
 
@@ -29,6 +30,12 @@ inline int cmm_e2e_byte_sum(std::span<const std::uint8_t> bytes)
     int sum = 0;
     for (std::uint8_t byte : bytes) sum += byte;
     return sum;
+}
+
+inline std::span<const std::uint8_t> cmm_e2e_bytes()
+{
+    static constexpr std::array<std::uint8_t, 4> bytes{9, 8, 7, 6};
+    return bytes;
 }
 
 #endif
