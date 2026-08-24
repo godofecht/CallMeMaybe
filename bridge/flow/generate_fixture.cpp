@@ -122,7 +122,7 @@ int main()
     std::cout << "    let enum_low = " << enum_flip_name << "(9223372036854775808)\n";
     std::cout << "    if enum_low.error != 0 or enum_low.value != 7 { return 30 }\n";
     std::cout << "    let ctor_result = " << ctor_name << "(10)\n";
-    std::cout << "    if ctor_result.error != 0 or ctor_result.value.handle == 0 { return 31 }\n";
+    std::cout << "    if ctor_result.error != 0 or ctor_result.value.object_id == 0 { return 31 }\n";
     std::cout << "    let counter = ctor_result.value\n";
     std::cout << "    let method_result = " << add_method_name << "(counter, 5)\n";
     std::cout << "    if method_result.error != 0 or method_result.value != 15 { return 32 }\n";
