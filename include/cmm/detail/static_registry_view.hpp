@@ -58,6 +58,11 @@ constexpr std::string_view registry_entity_name(const RegistryEntityVariant& ent
     return std::visit([](const auto& value) -> std::string_view { return value.name(); }, entity);
 }
 
+constexpr std::string_view registry_entity_display_name(const RegistryEntityVariant& entity)
+{
+    return std::visit([](const auto& value) -> std::string_view { return value.display_name(); }, entity);
+}
+
 template <std::size_t EntityCount, std::size_t NameCount>
 consteval StaticRegistryData<EntityCount, NameCount> make_static_registry_data(
     std::array<std::pair<cmm::info, RegistryEntityVariant>, EntityCount> entities,
@@ -116,11 +121,30 @@ public:
         return it == entities_.end() ? nullptr : &it->second;
     }
 
+    constexpr const RegistryEntityVariant& get_entity(cmm::info id) const
+    {
+        return *try_get_entity(id);
+    }
+
+    template <typename EntityT>
+    constexpr const EntityT* try_get_as(cmm::info id) const
+    {
+        const RegistryEntityVariant* entity = try_get_entity(id);
+        return entity ? std::get_if<EntityT>(entity) : nullptr;
+    }
+
     constexpr std::string_view get_entity_name(cmm::info id) const
     {
         const RegistryEntityVariant* entity = try_get_entity(id);
         if (!entity) return {};
         return registry_entity_name(*entity);
+    }
+
+    constexpr std::string_view get_entity_display_name(cmm::info id) const
+    {
+        const RegistryEntityVariant* entity = try_get_entity(id);
+        if (!entity) return {};
+        return registry_entity_display_name(*entity);
     }
 
     constexpr cmm::info get_id_by_name(std::string_view name) const
