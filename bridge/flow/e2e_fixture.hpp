@@ -5,6 +5,11 @@
 #include <cstdint>
 #include <span>
 
+enum class CmmE2eCode : std::uint64_t {
+    Low = 7,
+    High = UINT64_C(0x8000000000000000)
+};
+
 inline int cmm_e2e_add(int a, int b)
 {
     return a + b;
@@ -74,6 +79,11 @@ inline std::uint64_t& cmm_e2e_mut_ref_u64(std::uint64_t& value)
 {
     value += 7;
     return value;
+}
+
+inline CmmE2eCode cmm_e2e_enum_flip(CmmE2eCode value)
+{
+    return value == CmmE2eCode::Low ? CmmE2eCode::High : CmmE2eCode::Low;
 }
 
 #endif
