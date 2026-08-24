@@ -53,6 +53,11 @@ consteval void insertion_sort(std::array<T, N>& values, KeyFn key)
     }
 }
 
+constexpr std::string_view registry_entity_name(const RegistryEntityVariant& entity)
+{
+    return std::visit([](const auto& value) -> std::string_view { return value.name(); }, entity);
+}
+
 template <std::size_t EntityCount, std::size_t NameCount>
 consteval StaticRegistryData<EntityCount, NameCount> make_static_registry_data(
     std::array<std::pair<cmm::info, RegistryEntityVariant>, EntityCount> entities,
@@ -61,6 +66,33 @@ consteval StaticRegistryData<EntityCount, NameCount> make_static_registry_data(
     insertion_sort(entities, [](const auto& entry) { return entry.first; });
     insertion_sort(names, [](const auto& entry) { return entry.first; });
     return StaticRegistryData<EntityCount, NameCount>{entities, names};
+}
+
+template <std::size_t EntityCount>
+consteval StaticRegistryData<EntityCount, EntityCount> make_static_registry_data(
+    std::array<std::pair<cmm::info, RegistryEntityVariant>, EntityCount> entities)
+{
+    std::array<std::pair<std::string_view, cmm::info>, EntityCount> names{};
+    for (std::size_t i = 0; i < EntityCount; ++i)
+    {
+        names[i] = {registry_entity_name(entities[i].second), entities[i].first};
+    }
+
+    insertion_sort(entities, [](const auto& entry) { return entry.first; });
+    insertion_sort(names, [](const auto& entry) { return entry.first; });
+
+    for (std::size_t i = 0; i < EntityCount;)
+    {
+        std::size_t end = i + 1;
+        while (end < EntityCount && names[end].first == names[i].first) ++end;
+        if (end - i > 1)
+        {
+            for (std::size_t j = i; j < end; ++j) names[j].second = cmm::invalid_info;
+        }
+        i = end;
+    }
+
+    return StaticRegistryData<EntityCount, EntityCount>{entities, names};
 }
 
 class RegistryView {
@@ -88,7 +120,7 @@ public:
     {
         const RegistryEntityVariant* entity = try_get_entity(id);
         if (!entity) return {};
-        return std::visit([](const auto& value) -> std::string_view { return value.name(); }, *entity);
+        return registry_entity_name(*entity);
     }
 
     constexpr cmm::info get_id_by_name(std::string_view name) const
