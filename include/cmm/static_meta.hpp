@@ -114,6 +114,19 @@ inline std::vector<cmm::info> nonstatic_data_members_of(cmm::info i)
     return {view.begin(), view.end()};
 }
 
+inline std::span<const cmm::info> parameters_view_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return {};
+    const auto* function = detail::active_static_registry().try_get_as<detail::Function>(i);
+    return function ? function->parameter_ids() : std::span<const cmm::info>{};
+}
+
+inline std::vector<cmm::info> parameters_of(cmm::info i)
+{
+    const auto view = parameters_view_of(i);
+    return {view.begin(), view.end()};
+}
+
 inline std::size_t size_of(cmm::info i)
 {
     if (!detail::static_valid(i)) return 0;
