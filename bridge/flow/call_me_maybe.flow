@@ -17,6 +17,8 @@ const CMM_FLOW_F64: u32 = 11
 const CMM_FLOW_POINTER: u32 = 12
 const CMM_FLOW_STRING: u32 = 13
 const CMM_FLOW_BYTES: u32 = 14
+const CMM_FLOW_MUT_REF: u32 = 15
+const CMM_FLOW_CONST_REF: u32 = 16
 const CMM_FLOW_UNSUPPORTED: u32 = 255
 
 struct CmmFlowValue {
@@ -30,7 +32,9 @@ extern {
     function cmm_flow_reflect_name(name: string) -> u64
     function cmm_flow_parameter_count(function_id: u64) -> u64
     function cmm_flow_return_kind(function_id: u64) -> u32
+    function cmm_flow_return_pointee_kind(function_id: u64) -> u32
     function cmm_flow_parameter_kind(function_id: u64, index: u64) -> u32
+    function cmm_flow_parameter_pointee_kind(function_id: u64, index: u64) -> u32
     function cmm_flow_invoke(function_id: u64, arguments: ptr<CmmFlowValue>, argument_count: u64, result: ptr<CmmFlowValue>) -> i32
     function cmm_flow_error_string(error: i32) -> string
     function cmm_flow_f32_bits(value: f32) -> u64
@@ -41,6 +45,8 @@ extern {
     function cmm_flow_bits_string(bits: u64) -> string
     function cmm_flow_byte_span_data(value: span<u8>) -> u64
     function cmm_flow_bits_u8_ptr(bits: u64) -> ptr<u8>
+    function cmm_flow_i32_ptr_bits(value: ptr<i32>) -> u64
+    function cmm_flow_bits_i32_ptr(bits: u64) -> ptr<i32>
 }
 
 export function cmm_i8(value: i8) -> CmmFlowValue { return CmmFlowValue { kind: CMM_FLOW_I8, reserved: 0, bits: value as u64, extra: 0 } }
@@ -64,12 +70,19 @@ export function cmm_string(value: string) -> CmmFlowValue {
 }
 
 export function cmm_bytes(value: span<u8>) -> CmmFlowValue {
-    return CmmFlowValue {
-        kind: CMM_FLOW_BYTES,
-        reserved: 0,
-        bits: cmm_flow_byte_span_data(value),
-        extra: value.len as u64
-    }
+    return CmmFlowValue { kind: CMM_FLOW_BYTES, reserved: 0, bits: cmm_flow_byte_span_data(value), extra: value.len as u64 }
+}
+
+export function cmm_ptr_i32(value: ptr<i32>) -> CmmFlowValue {
+    return CmmFlowValue { kind: CMM_FLOW_POINTER, reserved: 0, bits: cmm_flow_i32_ptr_bits(value), extra: 0 }
+}
+
+export function cmm_mut_ref_i32(value: ptr<i32>) -> CmmFlowValue {
+    return CmmFlowValue { kind: CMM_FLOW_MUT_REF, reserved: 0, bits: cmm_flow_i32_ptr_bits(value), extra: 0 }
+}
+
+export function cmm_const_ref_i32(value: ptr<i32>) -> CmmFlowValue {
+    return CmmFlowValue { kind: CMM_FLOW_CONST_REF, reserved: 0, bits: cmm_flow_i32_ptr_bits(value), extra: 0 }
 }
 
 export function cmm_as_i8(value: CmmFlowValue) -> i8 { return value.bits as i8 }
@@ -84,6 +97,7 @@ export function cmm_as_f32(value: CmmFlowValue) -> f32 { return cmm_flow_bits_f3
 export function cmm_as_f64(value: CmmFlowValue) -> f64 { return cmm_flow_bits_f64(value.bits) }
 export function cmm_as_bool(value: CmmFlowValue) -> bool { return value.bits != 0 }
 export function cmm_as_string(value: CmmFlowValue) -> string { return cmm_flow_bits_string(value.bits) }
+export function cmm_as_i32_ptr(value: CmmFlowValue) -> ptr<i32> { return cmm_flow_bits_i32_ptr(value.bits) }
 
 export function cmm_as_byte_span(value: CmmFlowValue) -> span<u8> {
     return cmm_flow_bits_u8_ptr(value.bits)[0..value.extra as i64]
