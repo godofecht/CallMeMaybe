@@ -49,12 +49,13 @@ https://github.com/godofecht/CallMeMaybe/pull/4
 - [x] borrowed `const char*` strings as native Flow `string`
 - [x] borrowed byte-span parameters (`std::span<const uint8_t>` ↔ Flow `span<u8>`)
 - [x] borrowed byte-span returns (`std::span<const uint8_t>` ↔ Flow `span<u8>`)
+- [x] typed `int*`, `int&`, and `const int&` borrowing profile
+- [ ] remaining typed pointer / reference borrowing rules
 - [x] native Flow `extern` declarations
 - [x] generated ergonomic typed Flow wrappers with explicit error-bearing results
 - [x] cross-boundary regression tests and sanitizer coverage
 - [x] pinned Flow compiler transpilation and C11 compile validation
 - [x] end-to-end linked Flow executable invoking reflected C++ functions
-- [ ] typed pointer / reference borrowing rules
 - [ ] aggregates and enums
 - [ ] methods / constructors
 - [ ] ownership-transfer profile
