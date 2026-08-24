@@ -5,6 +5,8 @@
 #include <cstdint>
 #include <span>
 
+#include "cmm/annotations.hpp"
+
 enum class CmmE2eCode : std::uint64_t {
     Low = 7,
     High = UINT64_C(0x8000000000000000)
