@@ -58,7 +58,8 @@ int main()
     std::cout << "    if const_ref_result.error != 0 or const_ref_result.value[0] != 42 { return 21 }\n";
     std::cout << "    let mut wide: u64 = 1099511627776\n";
     std::cout << "    let wide_result = " << pointer_u64_name << "(&wide)\n";
-    std::cout << "    if wide_result.error != 0 or wide_result.value[0] != 1099511627776 { return 22 }\n";
+    std::cout << "    if wide_result.error != 0 { return 60 + wide_result.error }\n";
+    std::cout << "    if wide_result.value[0] != 1099511627776 { return 22 }\n";
     std::cout << "    let mut real: f64 = 3.25\n";
     std::cout << "    let real_result = " << mut_ref_f64_name << "(&real)\n";
     std::cout << "    if real_result.error != 0 or real != 6.5 or real_result.value[0] != 6.5 { return 23 }\n";
