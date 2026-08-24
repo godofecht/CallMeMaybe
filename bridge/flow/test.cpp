@@ -23,6 +23,31 @@ int reflected_byte_sum(std::span<const std::uint8_t> bytes)
     return sum;
 }
 
+int reflected_read_const(const int* value)
+{
+    return value ? *value : -1;
+}
+
+const int* reflected_const_return(int* value)
+{
+    return value;
+}
+
+int reflected_rvalue(int&& value)
+{
+    return value;
+}
+
+int reflected_nested(int** value)
+{
+    return value && *value ? **value : -1;
+}
+
+int reflected_volatile(const volatile int* value)
+{
+    return value ? *value : -1;
+}
+
 int main()
 {
     assert(cmm::register_rrefl<^^reflected_add>() == cmm::Error::Success);
@@ -30,6 +55,11 @@ int main()
     assert(cmm::register_rrefl<^^reflected_not>() == cmm::Error::Success);
     assert(cmm::register_rrefl<^^reflected_echo>() == cmm::Error::Success);
     assert(cmm::register_rrefl<^^reflected_byte_sum>() == cmm::Error::Success);
+    assert(cmm::register_rrefl<^^reflected_read_const>() == cmm::Error::Success);
+    assert(cmm::register_rrefl<^^reflected_const_return>() == cmm::Error::Success);
+    assert(cmm::register_rrefl<^^reflected_rvalue>() == cmm::Error::Success);
+    assert(cmm::register_rrefl<^^reflected_nested>() == cmm::Error::Success);
+    assert(cmm::register_rrefl<^^reflected_volatile>() == cmm::Error::Success);
 
     const cmm::flow::GenerationResult generated =
         cmm::flow::generate_wrapper_fragment<^^reflected_add, ^^reflected_scale, ^^reflected_not, ^^reflected_echo, ^^reflected_byte_sum>();
@@ -45,6 +75,26 @@ int main()
     assert(generated.source.find("cmm_as_string(result)") != std::string::npos);
     assert(generated.source.find("arg0: span<u8>") != std::string::npos);
     assert(generated.source.find("cmm_bytes(arg0)") != std::string::npos);
+
+    const cmm::flow::GenerationResult const_pointer_parameter =
+        cmm::flow::generate_wrapper_fragment<^^reflected_read_const>();
+    assert(const_pointer_parameter.error == cmm::Error::InvalidArgumentType);
+
+    const cmm::flow::GenerationResult const_pointer_return =
+        cmm::flow::generate_wrapper_fragment<^^reflected_const_return>();
+    assert(const_pointer_return.error == cmm::Error::TypeMismatch);
+
+    const cmm::flow::GenerationResult rvalue =
+        cmm::flow::generate_wrapper_fragment<^^reflected_rvalue>();
+    assert(rvalue.error == cmm::Error::InvalidArgumentType);
+
+    const cmm::flow::GenerationResult nested =
+        cmm::flow::generate_wrapper_fragment<^^reflected_nested>();
+    assert(nested.error == cmm::Error::InvalidArgumentType);
+
+    const cmm::flow::GenerationResult volatile_pointer =
+        cmm::flow::generate_wrapper_fragment<^^reflected_volatile>();
+    assert(volatile_pointer.error == cmm::Error::InvalidArgumentType);
 
     const cmm_flow_info add_id = cmm_flow_reflect_name("reflected_add");
     assert(add_id != cmm::invalid_info);
@@ -99,6 +149,38 @@ int main()
     assert(cmm_flow_invoke(byte_sum_id, &bytes_arg, 1, &bytes_result) == 0);
     assert(bytes_result.kind == CMM_FLOW_I32);
     assert(static_cast<int32_t>(bytes_result.bits) == 10);
+
+    int borrowed = 91;
+    const cmm_flow_info read_const_id = cmm_flow_reflect_name("reflected_read_const");
+    assert(read_const_id != cmm::invalid_info);
+    assert(cmm_flow_parameter_kind(read_const_id, 0) == CMM_FLOW_CONST_POINTER);
+    assert(cmm_flow_parameter_pointee_kind(read_const_id, 0) == CMM_FLOW_I32);
+    const cmm_flow_value const_pointer_arg{
+        CMM_FLOW_CONST_POINTER,
+        0,
+        static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(&borrowed)),
+        0
+    };
+    cmm_flow_value const_pointer_result{};
+    assert(cmm_flow_invoke(read_const_id, &const_pointer_arg, 1, &const_pointer_result) == 0);
+    assert(const_pointer_result.kind == CMM_FLOW_I32);
+    assert(static_cast<int32_t>(const_pointer_result.bits) == borrowed);
+
+    const cmm_flow_info const_return_id = cmm_flow_reflect_name("reflected_const_return");
+    assert(cmm_flow_return_kind(const_return_id) == CMM_FLOW_CONST_POINTER);
+    assert(cmm_flow_return_pointee_kind(const_return_id) == CMM_FLOW_I32);
+
+    const cmm_flow_info rvalue_id = cmm_flow_reflect_name("reflected_rvalue");
+    assert(cmm_flow_parameter_kind(rvalue_id, 0) == CMM_FLOW_UNSUPPORTED);
+    assert(cmm_flow_parameter_pointee_kind(rvalue_id, 0) == CMM_FLOW_I32);
+
+    const cmm_flow_info nested_id = cmm_flow_reflect_name("reflected_nested");
+    assert(cmm_flow_parameter_kind(nested_id, 0) == CMM_FLOW_UNSUPPORTED);
+    assert(cmm_flow_parameter_pointee_kind(nested_id, 0) == CMM_FLOW_UNSUPPORTED);
+
+    const cmm_flow_info volatile_id = cmm_flow_reflect_name("reflected_volatile");
+    assert(cmm_flow_parameter_kind(volatile_id, 0) == CMM_FLOW_UNSUPPORTED);
+    assert(cmm_flow_parameter_pointee_kind(volatile_id, 0) == CMM_FLOW_UNSUPPORTED);
 
     cmm_flow_value bad_result{};
     assert(cmm_flow_invoke(add_id, &bool_arg, 1, &bad_result) == static_cast<int32_t>(cmm::Error::InvalidArgumentCount));
