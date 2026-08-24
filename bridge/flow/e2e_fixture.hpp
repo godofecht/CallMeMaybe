@@ -10,6 +10,28 @@ enum class CmmE2eCode : std::uint64_t {
     High = UINT64_C(0x8000000000000000)
 };
 
+class CmmE2eCounter {
+public:
+    [[=cmm::reflectable]] explicit CmmE2eCounter(int value)
+        : value_(value)
+    {
+    }
+
+    [[=cmm::reflectable]] int add(int amount)
+    {
+        value_ += amount;
+        return value_;
+    }
+
+    [[=cmm::reflectable]] int value() const
+    {
+        return value_;
+    }
+
+private:
+    int value_{};
+};
+
 inline int cmm_e2e_add(int a, int b)
 {
     return a + b;
