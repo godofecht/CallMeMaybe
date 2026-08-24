@@ -206,11 +206,10 @@ consteval auto make_registry_view_fixture()
     return cmm::detail::make_static_registry_data(entities, names);
 }
 
-inline constexpr auto registry_view_fixture = make_registry_view_fixture();
-
 constexpr bool constexpr_registry_view_roundtrip()
 {
-    cmm::detail::RegistryView view(registry_view_fixture);
+    constexpr auto data = make_registry_view_fixture();
+    cmm::detail::RegistryView view(data);
     if (view.entity_count() != 3 || view.name_count() != 3) return false;
     if (!view.contains(10) || !view.contains(20) || !view.contains(30)) return false;
     if (view.contains(40)) return false;
