@@ -65,4 +65,15 @@ inline const bool& cmm_e2e_const_ref_bool(const bool& value)
     return value;
 }
 
+inline std::uint64_t* cmm_e2e_pointer_u64(std::uint64_t* value)
+{
+    return value;
+}
+
+inline std::uint64_t& cmm_e2e_mut_ref_u64(std::uint64_t& value)
+{
+    value += 7;
+    return value;
+}
+
 #endif
