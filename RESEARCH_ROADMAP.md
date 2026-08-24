@@ -59,7 +59,7 @@ https://github.com/godofecht/CallMeMaybe/pull/4
 - [x] pinned Flow compiler transpilation and C11 compile validation
 - [x] end-to-end linked Flow executable invoking reflected C++ functions
 - [ ] aggregates
-- [ ] methods / constructors
+- [x] methods / constructors
 - [ ] ownership-transfer profile
 
 ### PR #5 — Consteval registry port and measurement
