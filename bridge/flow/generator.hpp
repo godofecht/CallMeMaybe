@@ -22,11 +22,16 @@ GenerationResult generate_wrapper_fragment(std::span<const cmm::info> function_i
 namespace detail {
 
 template <std::meta::info TypeRefl>
-void register_enum_dependency(cmm::Error& error)
+void register_value_dependency(cmm::Error& error)
 {
     if (error != cmm::Error::Success) return;
     constexpr std::meta::info decayed = std::meta::remove_cvref(TypeRefl);
-    if constexpr (std::meta::is_enum_type(decayed)) error = cmm::register_rrefl<decayed>();
+    if constexpr (std::meta::is_enum_type(decayed) ||
+                  std::meta::is_class_type(decayed) ||
+                  std::meta::is_union_type(decayed))
+    {
+        error = cmm::register_rrefl<decayed>();
+    }
 }
 
 template <std::meta::info Function>
@@ -36,12 +41,12 @@ void register_binding(cmm::Error& error)
 
     if constexpr (!std::meta::is_constructor(Function) && !std::meta::is_destructor(Function))
     {
-        register_enum_dependency<std::meta::return_type_of(Function)>(error);
+        register_value_dependency<std::meta::return_type_of(Function)>(error);
     }
 
     template for (constexpr std::meta::info parameter : std::define_static_array(std::meta::parameters_of(Function)))
     {
-        register_enum_dependency<std::meta::type_of(parameter)>(error);
+        register_value_dependency<std::meta::type_of(parameter)>(error);
     }
 
     if (error == cmm::Error::Success) error = cmm::register_rrefl<Function>();
