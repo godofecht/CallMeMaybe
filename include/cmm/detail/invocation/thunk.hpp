@@ -44,6 +44,14 @@ constexpr bool is_argument_valid(const cmm::Value& arg) {
     constexpr bool p_is_const = std::meta::is_const_type(std::meta::remove_reference(ParamTypeRefl));
     constexpr bool p_is_rvalue_ref = std::meta::is_rvalue_reference_type(ParamTypeRefl);
 
+    if constexpr (std::is_enum_v<Base>) {
+        if constexpr (!std::is_reference_v<Param>) {
+            using Underlying = std::underlying_type_t<Base>;
+            constexpr cmm::info underlying_id = cmm::detail::hash_entity(std::meta::decay(^^Underlying));
+            if (arg.type_id() == underlying_id) return true;
+        }
+    }
+
     if (!is_compatible_argument(arg.type_id(), arg.policy(), p_base_id,
                                 p_is_ref, p_is_const, p_is_rvalue_ref)) {
         return false;
@@ -60,6 +68,15 @@ template <std::meta::info ParamTypeRefl>
 decltype(auto) extract_argument(cmm::Value& value) {
     using Param = typename[:ParamTypeRefl:];
     using Base = std::remove_cvref_t<Param>;
+
+    if constexpr (std::is_enum_v<Base> && !std::is_reference_v<Param>) {
+        using Underlying = std::underlying_type_t<Base>;
+        constexpr cmm::info enum_id = cmm::detail::hash_entity(std::meta::decay(ParamTypeRefl));
+        if (value.type_id() != enum_id) {
+            const auto* raw = static_cast<const Underlying*>(value.data());
+            return static_cast<Param>(static_cast<Base>(*raw));
+        }
+    }
 
     const Base* ptr = static_cast<const Base*>(value.data());
 
