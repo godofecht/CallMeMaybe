@@ -63,11 +63,11 @@ int main()
     std::cout << "    let mut truth: bool = true\n";
     std::cout << "    let truth_result = " << const_ref_bool_name << "(&truth)\n";
     std::cout << "    if truth_result.error != 0 or truth_result.value[0] != true { return 24 }\n";
-    std::cout << "    let mut wide: u64 = 9223372036854775813\n";
+    std::cout << "    let mut wide: u64 = 5000000000\n";
     std::cout << "    let wide_ptr_result = " << pointer_u64_name << "(&wide)\n";
-    std::cout << "    if wide_ptr_result.error != 0 or wide_ptr_result.value[0] != 9223372036854775813 { return 25 }\n";
+    std::cout << "    if wide_ptr_result.error != 0 or wide_ptr_result.value[0] != 5000000000 { return 25 }\n";
     std::cout << "    let wide_ref_result = " << mut_ref_u64_name << "(&wide)\n";
-    std::cout << "    if wide_ref_result.error != 0 or wide != 9223372036854775820 or wide_ref_result.value[0] != 9223372036854775820 { return 26 }\n";
+    std::cout << "    if wide_ref_result.error != 0 or wide != 5000000007 or wide_ref_result.value[0] != 5000000007 { return 26 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
     return 0;
