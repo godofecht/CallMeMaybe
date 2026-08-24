@@ -81,7 +81,7 @@ int main(int argc, char** argv)
     metapp::MetaRepo repo;
     repo.registerCallable("bench_add", &bench_add);
     const metapp::MetaItem callable = repo.getCallable("bench_add");
-    if (!callable)
+    if (callable.isEmpty())
     {
         std::cerr << "metapp failed to resolve bench_add\n";
         return 1;
