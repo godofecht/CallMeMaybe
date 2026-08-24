@@ -30,6 +30,7 @@ typedef enum cmm_flow_kind {
     CMM_FLOW_MUT_REF = 15,
     CMM_FLOW_CONST_REF = 16,
     CMM_FLOW_CONST_POINTER = 17,
+    CMM_FLOW_OBJECT = 18,
     CMM_FLOW_UNSUPPORTED = 255
 } cmm_flow_kind;
 
@@ -51,7 +52,11 @@ uint32_t cmm_flow_parameter_kind(cmm_flow_info function_id, uint64_t index);
 uint32_t cmm_flow_parameter_pointee_kind(cmm_flow_info function_id, uint64_t index);
 uint32_t cmm_flow_return_kind(cmm_flow_info function_id);
 uint32_t cmm_flow_return_pointee_kind(cmm_flow_info function_id);
+bool cmm_flow_requires_instance(cmm_flow_info function_id);
+bool cmm_flow_is_constructor(cmm_flow_info function_id);
+bool cmm_flow_is_destructor(cmm_flow_info function_id);
 int32_t cmm_flow_invoke(cmm_flow_info function_id, const cmm_flow_value* arguments, uint64_t argument_count, cmm_flow_value* result);
+int32_t cmm_flow_invoke_method(cmm_flow_info function_id, uint64_t object_handle, const cmm_flow_value* arguments, uint64_t argument_count, cmm_flow_value* result);
 const char* cmm_flow_error_string(int32_t error);
 uint64_t cmm_flow_f32_bits(float value);
 uint64_t cmm_flow_f64_bits(double value);
