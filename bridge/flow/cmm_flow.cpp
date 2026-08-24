@@ -1,10 +1,14 @@
 #include "cmm_flow.h"
 
+#include <atomic>
 #include <bit>
 #include <cstdint>
 #include <cstring>
+#include <memory>
+#include <mutex>
 #include <span>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 
 #include "cmm/meta.hpp"
@@ -12,6 +16,10 @@
 namespace {
 
 using ByteSpan = std::span<const std::uint8_t>;
+
+std::mutex object_mutex;
+std::unordered_map<std::uint64_t, std::shared_ptr<cmm::Value>> objects;
+std::atomic<std::uint64_t> next_object_handle{1};
 
 template <typename T>
 bool is_type(cmm::info type_id)
@@ -45,6 +53,38 @@ uint32_t width_kind(bool is_signed, std::size_t size)
 bool is_nested_borrow_target(cmm::info type_id)
 {
     return cmm::is_pointer_type(type_id) || cmm::is_reference_type(type_id);
+}
+
+bool requires_instance(cmm::info function_id)
+{
+    return cmm::is_function(function_id) &&
+           cmm::parent_of(function_id) != cmm::invalid_info &&
+           !cmm::is_static_member(function_id) &&
+           !cmm::is_constructor(function_id) &&
+           !cmm::is_destructor(function_id);
+}
+
+std::uint64_t store_object(cmm::Value&& value)
+{
+    if (!value.object_pointer() || value.pointee_type_id() == cmm::invalid_info) return 0;
+    const std::uint64_t handle = next_object_handle.fetch_add(1, std::memory_order_relaxed);
+    auto stored = std::make_shared<cmm::Value>(std::move(value));
+    std::lock_guard<std::mutex> lock(object_mutex);
+    objects.emplace(handle, std::move(stored));
+    return handle;
+}
+
+std::shared_ptr<cmm::Value> get_object(std::uint64_t handle)
+{
+    std::lock_guard<std::mutex> lock(object_mutex);
+    const auto it = objects.find(handle);
+    return it == objects.end() ? nullptr : it->second;
+}
+
+void erase_object(std::uint64_t handle)
+{
+    std::lock_guard<std::mutex> lock(object_mutex);
+    objects.erase(handle);
 }
 
 uint32_t kind_of(cmm::info type_id)
@@ -113,7 +153,6 @@ template <typename T>
 cmm::Error decode_scalar_borrow(cmm::info expected_type, const cmm_flow_value& input, cmm::Value& output)
 {
     const auto address = static_cast<std::uintptr_t>(input.bits);
-
     if (cmm::is_pointer_type(expected_type))
     {
         const cmm::info target = cmm::underlying_type(expected_type);
@@ -121,7 +160,6 @@ cmm::Error decode_scalar_borrow(cmm::info expected_type, const cmm_flow_value& i
         else output = cmm::Value(reinterpret_cast<T*>(address));
         return cmm::Error::Success;
     }
-
     if (!cmm::is_lvalue_reference_type(expected_type)) return cmm::Error::InvalidArgumentType;
     if (address == 0) return cmm::Error::NullValue;
 
@@ -246,6 +284,26 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
     return cmm::Error::TypeMismatch;
 }
 
+cmm::Error decode_arguments(cmm::info function_id,
+                            const cmm_flow_value* arguments,
+                            uint64_t argument_count,
+                            std::vector<cmm::Value>& values)
+{
+    const auto parameters = cmm::parameters_view_of(function_id);
+    if (parameters.size() != argument_count) return cmm::Error::InvalidArgumentCount;
+    if (argument_count != 0 && !arguments) return cmm::Error::NullValue;
+
+    values.reserve(values.size() + parameters.size());
+    for (std::size_t i = 0; i < parameters.size(); ++i)
+    {
+        cmm::Value value;
+        const cmm::Error decoded = decode_value(cmm::type_of(parameters[i]), arguments[i], value);
+        if (decoded != cmm::Error::Success) return decoded;
+        values.push_back(std::move(value));
+    }
+    return cmm::Error::Success;
+}
+
 } // namespace
 
 extern "C" cmm_flow_info cmm_flow_reflect_name(const char* name)
@@ -275,35 +333,86 @@ extern "C" uint32_t cmm_flow_parameter_pointee_kind(cmm_flow_info function_id, u
 
 extern "C" uint32_t cmm_flow_return_kind(cmm_flow_info function_id)
 {
+    if (cmm::is_constructor(function_id)) return CMM_FLOW_OBJECT;
+    if (cmm::is_destructor(function_id)) return CMM_FLOW_VOID;
     return kind_of(cmm::return_type_of(function_id));
 }
 
 extern "C" uint32_t cmm_flow_return_pointee_kind(cmm_flow_info function_id)
 {
+    if (cmm::is_constructor(function_id) || cmm::is_destructor(function_id)) return CMM_FLOW_UNSUPPORTED;
     return pointee_kind(cmm::return_type_of(function_id));
+}
+
+extern "C" bool cmm_flow_requires_instance(cmm_flow_info function_id)
+{
+    return requires_instance(function_id);
+}
+
+extern "C" bool cmm_flow_is_constructor(cmm_flow_info function_id)
+{
+    return cmm::is_constructor(function_id);
+}
+
+extern "C" bool cmm_flow_is_destructor(cmm_flow_info function_id)
+{
+    return cmm::is_destructor(function_id);
 }
 
 extern "C" int32_t cmm_flow_invoke(cmm_flow_info function_id, const cmm_flow_value* arguments, uint64_t argument_count, cmm_flow_value* result)
 {
     if (!result) return static_cast<int32_t>(cmm::Error::NullValue);
-    if (argument_count != 0 && !arguments) return static_cast<int32_t>(cmm::Error::NullValue);
-
-    const auto parameters = cmm::parameters_view_of(function_id);
-    if (parameters.size() != argument_count) return static_cast<int32_t>(cmm::Error::InvalidArgumentCount);
+    if (requires_instance(function_id) || cmm::is_destructor(function_id)) return static_cast<int32_t>(cmm::Error::InvalidArgumentCount);
 
     std::vector<cmm::Value> values;
-    values.reserve(parameters.size());
-    for (std::size_t i = 0; i < parameters.size(); ++i)
-    {
-        cmm::Value value;
-        const cmm::Error decoded = decode_value(cmm::type_of(parameters[i]), arguments[i], value);
-        if (decoded != cmm::Error::Success) return static_cast<int32_t>(decoded);
-        values.push_back(std::move(value));
-    }
+    const cmm::Error decoded = decode_arguments(function_id, arguments, argument_count, values);
+    if (decoded != cmm::Error::Success) return static_cast<int32_t>(decoded);
 
     cmm::Value reflected_result;
     const cmm::Error invoked = cmm::reflect_invoke(function_id, values, reflected_result);
     if (invoked != cmm::Error::Success) return static_cast<int32_t>(invoked);
+
+    if (cmm::is_constructor(function_id))
+    {
+        const std::uint64_t handle = store_object(std::move(reflected_result));
+        if (handle == 0) return static_cast<int32_t>(cmm::Error::TypeMismatch);
+        *result = cmm_flow_value{CMM_FLOW_OBJECT, 0, handle, cmm::parent_of(function_id)};
+        return static_cast<int32_t>(cmm::Error::Success);
+    }
+
+    return static_cast<int32_t>(encode_value(cmm::return_type_of(function_id), reflected_result, *result));
+}
+
+extern "C" int32_t cmm_flow_invoke_method(cmm_flow_info function_id,
+                                            uint64_t object_handle,
+                                            const cmm_flow_value* arguments,
+                                            uint64_t argument_count,
+                                            cmm_flow_value* result)
+{
+    if (!result) return static_cast<int32_t>(cmm::Error::NullValue);
+    if (!requires_instance(function_id) && !cmm::is_destructor(function_id)) return static_cast<int32_t>(cmm::Error::NotInvocable);
+
+    std::shared_ptr<cmm::Value> object = get_object(object_handle);
+    if (!object) return static_cast<int32_t>(cmm::Error::NullValue);
+    if (object->pointee_type_id() != cmm::parent_of(function_id)) return static_cast<int32_t>(cmm::Error::InvalidArgumentType);
+
+    std::vector<cmm::Value> values;
+    values.reserve(static_cast<std::size_t>(argument_count) + 1);
+    values.push_back(*object);
+    const cmm::Error decoded = decode_arguments(function_id, arguments, argument_count, values);
+    if (decoded != cmm::Error::Success) return static_cast<int32_t>(decoded);
+
+    cmm::Value reflected_result;
+    const cmm::Error invoked = cmm::reflect_invoke(function_id, values, reflected_result);
+    if (invoked != cmm::Error::Success) return static_cast<int32_t>(invoked);
+
+    if (cmm::is_destructor(function_id))
+    {
+        erase_object(object_handle);
+        *result = cmm_flow_value{CMM_FLOW_VOID, 0, 0, 0};
+        return static_cast<int32_t>(cmm::Error::Success);
+    }
+
     return static_cast<int32_t>(encode_value(cmm::return_type_of(function_id), reflected_result, *result));
 }
 
