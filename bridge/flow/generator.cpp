@@ -55,6 +55,7 @@ bool abi_type(uint32_t kind, uint32_t pointee_kind, AbiType& out)
         case CMM_FLOW_STRING: out = {"string", "cmm_string", "cmm_as_string", "\"\""}; return true;
         case CMM_FLOW_BYTES: out = {"span<u8>", "cmm_bytes", "cmm_as_byte_span", "cmm_as_byte_span(CmmFlowValue { kind: CMM_FLOW_BYTES, reserved: 0, bits: 0, extra: 0 })"}; return true;
         case CMM_FLOW_OBJECT: out = {"CmmObject", "", "cmm_as_object", "CmmObject { object_id: 0 }"}; return true;
+        case CMM_FLOW_AGGREGATE: out = {"CmmAggregate", "cmm_aggregate", "cmm_as_aggregate", "CmmAggregate { aggregate_id: 0 }"}; return true;
         case CMM_FLOW_POINTER:
         case CMM_FLOW_MUT_REF:
         case CMM_FLOW_CONST_REF:
@@ -139,14 +140,8 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
 
     out << "    let mut result: CmmFlowValue = CmmFlowValue { kind: CMM_FLOW_VOID, reserved: 0, bits: 0, extra: 0 }\n";
     out << "    let error: i32 = ";
-    if (has_object)
-    {
-        out << "cmm_flow_invoke_method(function_id, object.object_id, ";
-    }
-    else
-    {
-        out << "cmm_flow_invoke(function_id, ";
-    }
+    if (has_object) out << "cmm_flow_invoke_method(function_id, object.object_id, ";
+    else out << "cmm_flow_invoke(function_id, ";
     if (parameter_count == 0) out << "null";
     else out << "&args[0]";
     out << ", " << parameter_count << ", &result)\n";
