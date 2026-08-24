@@ -4,6 +4,7 @@
 #include "cmm/annotations.hpp"
 #include "cmm/detail/static_active_registry.hpp"
 #include "cmm/detail/static_single_member_registry.hpp"
+#include "cmm/static_meta.hpp"
 
 struct StaticWidget
 {
@@ -14,7 +15,6 @@ CMM_USE_STATIC_REGISTRY(cmm::detail::make_single_member_static_registry<^^Static
 
 int main()
 {
-    const cmm::detail::RegistryView& registry = cmm::detail::active_static_registry();
     const cmm::info widget_id = cmm::detail::hash_entity(^^StaticWidget);
 
     static constexpr auto members = std::define_static_array(
@@ -30,28 +30,25 @@ int main()
         }
     }
 
-    if (registry.entity_count() != 3) return 1;
-    if (registry.get_id_by_name("StaticWidget") != widget_id) return 2;
-    if (registry.get_id_by_name("value") != value_id) return 3;
-    if (registry.get_id_by_name("int") != int_id) return 4;
-    if (registry.get_entity_name(value_id) != std::string_view("value")) return 5;
-    if (registry.get_entity_display_name(widget_id) != std::string_view("StaticWidget")) return 6;
+    if (cmm::reflect_name("StaticWidget") != widget_id) return 1;
+    if (cmm::reflect_name("value") != value_id) return 2;
+    if (cmm::reflect_name("int") != int_id) return 3;
+    if (cmm::identifier_of(value_id) != std::string_view("value")) return 4;
+    if (cmm::display_string_of(widget_id) != std::string_view("StaticWidget")) return 5;
+    if (cmm::type_of(value_id) != int_id) return 6;
+    if (cmm::type_of(int_id) != int_id) return 7;
+    if (cmm::parent_of(value_id) != widget_id) return 8;
 
-    const auto* cls = registry.try_get_as<cmm::detail::Class>(widget_id);
-    if (!cls) return 7;
-    if (cls->members().size() != 1 || cls->members()[0] != value_id) return 8;
-    if (cls->get_member_by_name("value") != value_id) return 9;
-
-    const auto* member = registry.try_get_as<cmm::detail::DataMember>(value_id);
-    if (!member) return 10;
-    if (member->parent_id() != widget_id) return 11;
-    if (member->type_id() != int_id) return 12;
-    if (member->offset_bytes() != offsetof(StaticWidget, value)) return 13;
-
-    const auto* type = registry.try_get_as<cmm::detail::Type>(int_id);
-    if (!type) return 14;
-    if (type->size() != sizeof(int)) return 15;
-    if (type->alignment() != alignof(int)) return 16;
+    const auto member_view = cmm::members_view_of(widget_id);
+    if (member_view.size() != 1 || member_view[0] != value_id) return 9;
+    const auto data_member_view = cmm::nonstatic_data_members_view_of(widget_id);
+    if (data_member_view.size() != 1 || data_member_view[0] != value_id) return 10;
+    if (cmm::lookup::get_member(widget_id, "value") != value_id) return 11;
+    if (cmm::offset_of(value_id) != offsetof(StaticWidget, value)) return 12;
+    if (cmm::size_of(widget_id) != sizeof(StaticWidget)) return 13;
+    if (cmm::alignment_of(widget_id) != alignof(StaticWidget)) return 14;
+    if (cmm::size_of(int_id) != sizeof(int)) return 15;
+    if (cmm::alignment_of(int_id) != alignof(int)) return 16;
 
     return 0;
 }
