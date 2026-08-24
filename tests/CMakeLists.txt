@@ -9,3 +9,7 @@ add_test(NAME cmm_advanced COMMAND cmm_advanced)
 add_executable(cmm_constexpr_entities constexpr_entities.cpp)
 target_link_libraries(cmm_constexpr_entities PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_constexpr_entities COMMAND cmm_constexpr_entities)
+
+add_executable(cmm_static_registry_declaration static_registry_declaration.cpp)
+target_link_libraries(cmm_static_registry_declaration PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_registry_declaration COMMAND cmm_static_registry_declaration)
