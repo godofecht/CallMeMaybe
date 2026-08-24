@@ -23,7 +23,7 @@ consteval auto make_single_member_static_registry()
 {
     static_assert(std::meta::is_class_type(ClassRefl) || std::meta::is_union_type(ClassRefl));
 
-    constexpr auto members = std::define_static_array(
+    static constexpr auto members = std::define_static_array(
         std::meta::members_of(ClassRefl, std::meta::access_context::unchecked()));
 
     std::size_t reflected_data_members = 0;
