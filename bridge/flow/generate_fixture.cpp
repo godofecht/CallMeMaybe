@@ -2,11 +2,53 @@
 #include "generator.hpp"
 
 #include <iostream>
+#include <vector>
 
 int main()
 {
-    const cmm::flow::GenerationResult generated =
-        cmm::flow::generate_wrapper_fragment<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool, ^^cmm_e2e_pointer_u64, ^^cmm_e2e_mut_ref_u64, ^^cmm_e2e_enum_flip>();
+    cmm::Error registration_error =
+        cmm::flow::register_bindings<^^cmm_e2e_add, ^^cmm_e2e_scale, ^^cmm_e2e_not, ^^cmm_e2e_echo, ^^cmm_e2e_byte_sum, ^^cmm_e2e_bytes, ^^cmm_e2e_pointer, ^^cmm_e2e_mut_ref, ^^cmm_e2e_const_ref, ^^cmm_e2e_mut_ref_f64, ^^cmm_e2e_const_ref_bool, ^^cmm_e2e_pointer_u64, ^^cmm_e2e_mut_ref_u64, ^^cmm_e2e_enum_flip>();
+    if (registration_error == cmm::Error::Success) registration_error = cmm::register_rrefl<^^CmmE2eCounter>();
+    if (registration_error != cmm::Error::Success)
+    {
+        std::cerr << cmm::to_string(registration_error) << '\n';
+        return 1;
+    }
+
+    const cmm::info class_id = cmm::get_id<^^CmmE2eCounter>();
+    const cmm::info ctor_id = cmm::lookup::get_constructor<int>(class_id);
+    const cmm::info add_method_id = cmm::lookup::get_member(class_id, "add");
+    const cmm::info value_method_id = cmm::lookup::get_member(class_id, "value");
+    const cmm::info dtor_id = cmm::lookup::get_destructor(class_id);
+    if (ctor_id == cmm::invalid_info || add_method_id == cmm::invalid_info ||
+        value_method_id == cmm::invalid_info || dtor_id == cmm::invalid_info)
+    {
+        std::cerr << "missing reflected class fixture metadata\n";
+        return 1;
+    }
+
+    const std::vector<cmm::info> ids{
+        cmm::get_id<^^cmm_e2e_add>(),
+        cmm::get_id<^^cmm_e2e_scale>(),
+        cmm::get_id<^^cmm_e2e_not>(),
+        cmm::get_id<^^cmm_e2e_echo>(),
+        cmm::get_id<^^cmm_e2e_byte_sum>(),
+        cmm::get_id<^^cmm_e2e_bytes>(),
+        cmm::get_id<^^cmm_e2e_pointer>(),
+        cmm::get_id<^^cmm_e2e_mut_ref>(),
+        cmm::get_id<^^cmm_e2e_const_ref>(),
+        cmm::get_id<^^cmm_e2e_mut_ref_f64>(),
+        cmm::get_id<^^cmm_e2e_const_ref_bool>(),
+        cmm::get_id<^^cmm_e2e_pointer_u64>(),
+        cmm::get_id<^^cmm_e2e_mut_ref_u64>(),
+        cmm::get_id<^^cmm_e2e_enum_flip>(),
+        ctor_id,
+        add_method_id,
+        value_method_id,
+        dtor_id
+    };
+
+    const cmm::flow::GenerationResult generated = cmm::flow::generate_wrapper_fragment(ids);
     if (generated.error != cmm::Error::Success)
     {
         std::cerr << cmm::to_string(generated.error) << '\n';
@@ -27,6 +69,10 @@ int main()
     const std::string pointer_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_pointer_u64>());
     const std::string mut_ref_u64_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_mut_ref_u64>());
     const std::string enum_flip_name = cmm::flow::wrapper_name(cmm::get_id<^^cmm_e2e_enum_flip>());
+    const std::string ctor_name = cmm::flow::wrapper_name(ctor_id);
+    const std::string add_method_name = cmm::flow::wrapper_name(add_method_id);
+    const std::string value_method_name = cmm::flow::wrapper_name(value_method_id);
+    const std::string dtor_name = cmm::flow::wrapper_name(dtor_id);
 
     std::cout << generated.source;
     std::cout << "extern {\n";
@@ -75,6 +121,17 @@ int main()
     std::cout << "    if enum_high.error != 0 or enum_high.value != 9223372036854775808 { return 29 }\n";
     std::cout << "    let enum_low = " << enum_flip_name << "(9223372036854775808)\n";
     std::cout << "    if enum_low.error != 0 or enum_low.value != 7 { return 30 }\n";
+    std::cout << "    let ctor_result = " << ctor_name << "(10)\n";
+    std::cout << "    if ctor_result.error != 0 or ctor_result.value.handle == 0 { return 31 }\n";
+    std::cout << "    let counter = ctor_result.value\n";
+    std::cout << "    let method_result = " << add_method_name << "(counter, 5)\n";
+    std::cout << "    if method_result.error != 0 or method_result.value != 15 { return 32 }\n";
+    std::cout << "    let value_result = " << value_method_name << "(counter)\n";
+    std::cout << "    if value_result.error != 0 or value_result.value != 15 { return 33 }\n";
+    std::cout << "    let destroy_result = " << dtor_name << "(counter)\n";
+    std::cout << "    if destroy_result.error != 0 { return 34 }\n";
+    std::cout << "    let after_destroy = " << value_method_name << "(counter)\n";
+    std::cout << "    if after_destroy.error == 0 { return 35 }\n";
     std::cout << "    return 0\n";
     std::cout << "}\n";
     return 0;
