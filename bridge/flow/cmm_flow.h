@@ -61,7 +61,6 @@ const char* cmm_flow_bits_string(uint64_t bits);
 cmm_flow_value cmm_flow_bytes(cmm_flow_span_u8 value);
 cmm_flow_span_u8 cmm_flow_as_bytes(cmm_flow_value value);
 uint64_t cmm_flow_byte_span_data(cmm_flow_span_u8 value);
-const uint8_t* cmm_flow_bits_u8_ptr(uint64_t bits);
 
 #define CMM_FLOW_DECLARE_PTR_BITS(name, type) \
     uint64_t cmm_flow_##name##_ptr_bits(const type* value); \
