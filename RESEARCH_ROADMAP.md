@@ -48,7 +48,7 @@ https://github.com/godofecht/CallMeMaybe/pull/4
 - [x] scalar integer / bool / f32 / f64 profile
 - [x] borrowed `const char*` strings as native Flow `string`
 - [x] borrowed byte-span parameters (`std::span<const uint8_t>` ↔ Flow `span<u8>`)
-- [ ] borrowed byte-span returns — blocked by CMM return-metadata extraction for `std::span`
+- [x] borrowed byte-span returns (`std::span<const uint8_t>` ↔ Flow `span<u8>`)
 - [x] native Flow `extern` declarations
 - [x] generated ergonomic typed Flow wrappers with explicit error-bearing results
 - [x] cross-boundary regression tests and sanitizer coverage
