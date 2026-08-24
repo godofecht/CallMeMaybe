@@ -193,33 +193,30 @@ constexpr bool constexpr_metadata_roundtrip()
 consteval auto make_registry_view_fixture()
 {
     using V = cmm::detail::RegistryEntityVariant;
-    std::array<std::pair<cmm::info, V>, 3> entities{{
+    std::array<std::pair<cmm::info, V>, 4> entities{{
         {30, cmm::detail::Type("thirty")},
         {10, cmm::detail::Type("ten")},
         {20, cmm::detail::Type("twenty")},
+        {40, cmm::detail::Variable("twenty", 10)},
     }};
-    std::array<std::pair<std::string_view, cmm::info>, 3> names{{
-        {"twenty", 20},
-        {"ten", 10},
-        {"thirty", 30},
-    }};
-    return cmm::detail::make_static_registry_data(entities, names);
+    return cmm::detail::make_static_registry_data(entities);
 }
 
 constexpr bool constexpr_registry_view_roundtrip()
 {
     constexpr auto data = make_registry_view_fixture();
     cmm::detail::RegistryView view(data);
-    if (view.entity_count() != 3 || view.name_count() != 3) return false;
-    if (!view.contains(10) || !view.contains(20) || !view.contains(30)) return false;
-    if (view.contains(40)) return false;
+    if (view.entity_count() != 4 || view.name_count() != 4) return false;
+    if (!view.contains(10) || !view.contains(20) || !view.contains(30) || !view.contains(40)) return false;
+    if (view.contains(50)) return false;
     if (view.get_id_by_name("ten") != 10) return false;
-    if (view.get_id_by_name("twenty") != 20) return false;
     if (view.get_id_by_name("thirty") != 30) return false;
+    if (view.get_id_by_name("twenty") != cmm::invalid_info) return false;
     if (view.get_id_by_name("missing") != cmm::invalid_info) return false;
     if (view.get_entity_name(10) != "ten") return false;
     if (view.get_entity_name(20) != "twenty") return false;
-    if (view.get_entity_name(40) != std::string_view{}) return false;
+    if (view.get_entity_name(40) != "twenty") return false;
+    if (view.get_entity_name(50) != std::string_view{}) return false;
     return true;
 }
 
