@@ -56,6 +56,7 @@ int main()
     std::cout << "    if mut_ref_result.error != 0 or borrowed != 42 or mut_ref_result.value[0] != 42 { return 20 }\n";
     std::cout << "    let const_ref_result = " << const_ref_name << "(&borrowed)\n";
     std::cout << "    if const_ref_result.error != 0 or const_ref_result.value[0] != 42 { return 21 }\n";
+    std::cout << "    if cmm_flow_reflect_name(\"cmm_e2e_pointer_u64\") != " << cmm::get_id<^^cmm_e2e_pointer_u64>() << " { return 25 }\n";
     std::cout << "    let mut wide: u64 = 1099511627776\n";
     std::cout << "    let wide_result = " << pointer_u64_name << "(&wide)\n";
     std::cout << "    if wide_result.error != 0 { return 60 + wide_result.error }\n";
