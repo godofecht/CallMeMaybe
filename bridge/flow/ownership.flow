@@ -1,0 +1,7 @@
+# Ownership-transfer declarations for bridge-managed CmmObject values.
+# Constructor wrappers transfer ownership to the bridge. Generated release
+# wrappers consume that ownership and invalidate the handle after destruction.
+
+extern {
+    function cmm_flow_release_object(object_handle: u64, type_id: u64) -> i32
+}
