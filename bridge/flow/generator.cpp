@@ -54,6 +54,7 @@ bool abi_type(uint32_t kind, uint32_t pointee_kind, AbiType& out)
         case CMM_FLOW_F64: out = {"f64", "cmm_f64", "cmm_as_f64", "0.0"}; return true;
         case CMM_FLOW_STRING: out = {"string", "cmm_string", "cmm_as_string", "\"\""}; return true;
         case CMM_FLOW_BYTES: out = {"span<u8>", "cmm_bytes", "cmm_as_byte_span", "cmm_as_byte_span(CmmFlowValue { kind: CMM_FLOW_BYTES, reserved: 0, bits: 0, extra: 0 })"}; return true;
+        case CMM_FLOW_OBJECT: out = {"CmmObject", "", "cmm_as_object", "CmmObject { handle: 0 }"}; return true;
         case CMM_FLOW_POINTER:
         case CMM_FLOW_MUT_REF:
         case CMM_FLOW_CONST_REF:
@@ -92,6 +93,7 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
     const uint32_t return_kind = cmm_flow_return_kind(function_id);
     const uint32_t return_pointee_kind = cmm_flow_return_pointee_kind(function_id);
     const bool returns_void = return_kind == CMM_FLOW_VOID;
+    const bool has_object = cmm_flow_requires_instance(function_id) || cmm_flow_is_destructor(function_id);
 
     AbiType return_type{};
     if (!returns_void && !abi_type(return_kind, return_pointee_kind, return_type)) return cmm::Error::TypeMismatch;
@@ -105,12 +107,19 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
     out << "    error: i32\n}\n\n";
 
     out << "export function " << name << '(';
+    bool emitted_parameter = false;
+    if (has_object)
+    {
+        out << "object: CmmObject";
+        emitted_parameter = true;
+    }
     for (uint64_t index = 0; index < parameter_count; ++index)
     {
         AbiType parameter_type{};
         if (!abi_type(cmm_flow_parameter_kind(function_id, index), cmm_flow_parameter_pointee_kind(function_id, index), parameter_type)) return cmm::Error::InvalidArgumentType;
-        if (index != 0) out << ", ";
+        if (emitted_parameter) out << ", ";
         out << "arg" << index << ": " << parameter_type.flow_type;
+        emitted_parameter = true;
     }
     out << ") -> " << result_name << " {\n";
     out << "    let function_id: u64 = " << function_id << "\n";
@@ -129,7 +138,15 @@ cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
     }
 
     out << "    let mut result: CmmFlowValue = CmmFlowValue { kind: CMM_FLOW_VOID, reserved: 0, bits: 0, extra: 0 }\n";
-    out << "    let error: i32 = cmm_flow_invoke(function_id, ";
+    out << "    let error: i32 = ";
+    if (has_object)
+    {
+        out << "cmm_flow_invoke_method(function_id, object.handle, ";
+    }
+    else
+    {
+        out << "cmm_flow_invoke(function_id, ";
+    }
     if (parameter_count == 0) out << "null";
     else out << "&args[0]";
     out << ", " << parameter_count << ", &result)\n";
