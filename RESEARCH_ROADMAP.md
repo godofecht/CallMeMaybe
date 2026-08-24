@@ -58,7 +58,7 @@ https://github.com/godofecht/CallMeMaybe/pull/4
 - [x] cross-boundary regression tests and sanitizer coverage
 - [x] pinned Flow compiler transpilation and C11 compile validation
 - [x] end-to-end linked Flow executable invoking reflected C++ functions
-- [ ] aggregates
+- [x] aggregates
 - [x] methods / constructors
 - [x] ownership-transfer profile
 
