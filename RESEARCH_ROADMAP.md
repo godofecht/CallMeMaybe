@@ -50,7 +50,8 @@ https://github.com/godofecht/CallMeMaybe/pull/4
 - [x] borrowed byte-span parameters (`std::span<const uint8_t>` ↔ Flow `span<u8>`)
 - [x] borrowed byte-span returns (`std::span<const uint8_t>` ↔ Flow `span<u8>`)
 - [x] typed `int*`, `int&`, and `const int&` borrowing profile
-- [ ] remaining typed pointer / reference borrowing rules
+- [x] scalar pointer / lvalue-reference borrowing across bool, signed/unsigned integer widths, f32 and f64
+- [ ] pointer cv-qualification, rvalue-reference and nested pointer/reference borrowing rules
 - [x] native Flow `extern` declarations
 - [x] generated ergonomic typed Flow wrappers with explicit error-bearing results
 - [x] cross-boundary regression tests and sanitizer coverage
