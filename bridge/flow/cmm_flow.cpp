@@ -202,6 +202,12 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
     if (input.kind != expected_kind) return cmm::Error::InvalidArgumentType;
 
     if (cmm::is_enum_type(expected_type)) return decode_enum_underlying(expected_type, input, output);
+    if (is_type<ByteSpan>(expected_type))
+    {
+        const auto* data = reinterpret_cast<const std::uint8_t*>(static_cast<std::uintptr_t>(input.bits));
+        output = cmm::Value(ByteSpan(data, static_cast<std::size_t>(input.extra)));
+        return cmm::Error::Success;
+    }
     if (cmm::is_class_type(expected_type) || cmm::is_union_type(expected_type))
     {
         std::shared_ptr<cmm::Value> aggregate = get_object(input.bits);
@@ -223,12 +229,6 @@ cmm::Error decode_value(cmm::info expected_type, const cmm_flow_value& input, cm
     if (is_type<float>(expected_type)) { output = cmm::Value(std::bit_cast<float>(static_cast<uint32_t>(input.bits))); return cmm::Error::Success; }
     if (is_type<double>(expected_type)) { output = cmm::Value(std::bit_cast<double>(input.bits)); return cmm::Error::Success; }
     if (is_type<const char*>(expected_type)) { output = cmm::Value(cmm_flow_bits_string(input.bits)); return cmm::Error::Success; }
-    if (is_type<ByteSpan>(expected_type))
-    {
-        const auto* data = reinterpret_cast<const std::uint8_t*>(static_cast<std::uintptr_t>(input.bits));
-        output = cmm::Value(ByteSpan(data, static_cast<std::size_t>(input.extra)));
-        return cmm::Error::Success;
-    }
     if (is_type<void*>(expected_type))
     {
         output = cmm::Value(reinterpret_cast<void*>(static_cast<std::uintptr_t>(input.bits)));
@@ -259,6 +259,14 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
         std::memcpy(&output.bits, input.data(), size);
         return output.kind == CMM_FLOW_UNSUPPORTED ? cmm::Error::TypeMismatch : cmm::Error::Success;
     }
+    if (is_type<ByteSpan>(return_type))
+    {
+        const ByteSpan value = input.get<ByteSpan>();
+        output.kind = CMM_FLOW_BYTES;
+        output.bits = static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value.data()));
+        output.extra = static_cast<uint64_t>(value.size());
+        return cmm::Error::Success;
+    }
     if (cmm::is_class_type(return_type) || cmm::is_union_type(return_type))
     {
         cmm::Value copy;
@@ -283,14 +291,6 @@ cmm::Error encode_value(cmm::info return_type, const cmm::Value& input, cmm_flow
     if (is_type<float>(return_type)) { output.kind = CMM_FLOW_F32; output.bits = std::bit_cast<uint32_t>(input.get<float>()); return cmm::Error::Success; }
     if (is_type<double>(return_type)) { output.kind = CMM_FLOW_F64; output.bits = std::bit_cast<uint64_t>(input.get<double>()); return cmm::Error::Success; }
     if (is_type<const char*>(return_type)) { output.kind = CMM_FLOW_STRING; output.bits = cmm_flow_string_bits(input.get<const char*>()); return cmm::Error::Success; }
-    if (is_type<ByteSpan>(return_type))
-    {
-        const ByteSpan value = input.get<ByteSpan>();
-        output.kind = CMM_FLOW_BYTES;
-        output.bits = static_cast<uint64_t>(reinterpret_cast<std::uintptr_t>(value.data()));
-        output.extra = static_cast<uint64_t>(value.size());
-        return cmm::Error::Success;
-    }
     if (cmm::is_lvalue_reference_type(return_type))
     {
         output.kind = cmm::is_const_type(cmm::underlying_type(return_type)) ? CMM_FLOW_CONST_REF : CMM_FLOW_MUT_REF;
