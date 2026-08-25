@@ -20,6 +20,8 @@ enum class StaticPredicateState : unsigned int
 
 CMM_USE_STATIC_REGISTRY(
     (cmm::detail::make_type_static_registry<
+        ^^int,
+        ^^int*,
         ^^const volatile int,
         ^^unsigned int,
         ^^int&,
@@ -30,6 +32,8 @@ CMM_USE_STATIC_REGISTRY(
 
 int main()
 {
+    const cmm::info int_id = cmm::detail::hash_entity(^^int);
+    const cmm::info pointer_id = cmm::detail::hash_entity(^^int*);
     const cmm::info cv_int_id = cmm::detail::hash_entity(^^const volatile int);
     const cmm::info uint_id = cmm::detail::hash_entity(^^unsigned int);
     const cmm::info lref_id = cmm::detail::hash_entity(^^int&);
@@ -50,26 +54,31 @@ int main()
     if (!cmm::is_integral_type(uint_id)) return 9;
     if (!cmm::is_arithmetic_type(uint_id)) return 10;
 
-    if (!cmm::is_lvalue_reference_type(lref_id)) return 11;
-    if (!cmm::is_reference_type(lref_id)) return 12;
-    if (cmm::is_rvalue_reference_type(lref_id)) return 13;
+    if (!cmm::is_pointer_type(pointer_id)) return 11;
+    if (cmm::underlying_type(pointer_id) != int_id) return 12;
 
-    if (!cmm::is_rvalue_reference_type(rref_id)) return 14;
-    if (!cmm::is_reference_type(rref_id)) return 15;
-    if (cmm::is_lvalue_reference_type(rref_id)) return 16;
+    if (!cmm::is_lvalue_reference_type(lref_id)) return 13;
+    if (!cmm::is_reference_type(lref_id)) return 14;
+    if (cmm::is_rvalue_reference_type(lref_id)) return 15;
+    if (cmm::underlying_type(lref_id) != int_id) return 16;
 
-    if (!cmm::is_null_pointer_type(nullptr_id)) return 17;
-    if (!cmm::is_fundamental_type(nullptr_id)) return 18;
+    if (!cmm::is_rvalue_reference_type(rref_id)) return 17;
+    if (!cmm::is_reference_type(rref_id)) return 18;
+    if (cmm::is_lvalue_reference_type(rref_id)) return 19;
+    if (cmm::underlying_type(rref_id) != int_id) return 20;
 
-    if (!cmm::is_union_type(union_id)) return 19;
-    if (cmm::is_class_type(union_id)) return 20;
+    if (!cmm::is_null_pointer_type(nullptr_id)) return 21;
+    if (!cmm::is_fundamental_type(nullptr_id)) return 22;
 
-    if (!cmm::is_enum_type(state_id)) return 21;
-    if (!cmm::is_scoped_enum_type(state_id)) return 22;
-    if (cmm::is_class_type(state_id)) return 23;
+    if (!cmm::is_union_type(union_id)) return 23;
+    if (cmm::is_class_type(union_id)) return 24;
 
-    if (cmm::is_pointer_type(cmm::invalid_info)) return 24;
-    if (cmm::is_enum_type(cv_int_id)) return 25;
+    if (!cmm::is_enum_type(state_id)) return 25;
+    if (!cmm::is_scoped_enum_type(state_id)) return 26;
+    if (cmm::is_class_type(state_id)) return 27;
+
+    if (cmm::is_pointer_type(cmm::invalid_info)) return 28;
+    if (cmm::is_enum_type(cv_int_id)) return 29;
 
     return 0;
 }
