@@ -5,7 +5,7 @@
 #include "cmm/detail/static_active_registry.hpp"
 #include "cmm/detail/static_lifecycle_registry.hpp"
 #include "cmm/static_lifecycle.hpp"
-#include "cmm/static_meta.hpp"
+#include "cmm/static_query.hpp"
 
 struct StaticLifecycleProbe
 {
@@ -38,31 +38,35 @@ int main()
     if (cmm::parent_of(destructor_id) != class_id) return 3;
     if (!cmm::parameters_view_of(constructor_id).empty()) return 4;
     if (!cmm::parameters_view_of(destructor_id).empty()) return 5;
+    if (!cmm::is_constructor(constructor_id)) return 6;
+    if (!cmm::is_destructor(destructor_id)) return 7;
+    if (!cmm::is_function(constructor_id) || !cmm::is_function(destructor_id)) return 8;
+    if (cmm::is_destructor(constructor_id) || cmm::is_constructor(destructor_id)) return 9;
 
     const auto members = cmm::members_view_of(class_id);
-    if (members.size() != 2) return 6;
-    if (members[0] != constructor_id || members[1] != destructor_id) return 7;
+    if (members.size() != 2) return 10;
+    if (members[0] != constructor_id || members[1] != destructor_id) return 11;
 
-    if (cmm::lookup::get_constructor<>(class_id) != constructor_id) return 8;
-    if (cmm::lookup::get_destructor(class_id) != destructor_id) return 9;
-    if (cmm::lookup::get_constructor<int>(class_id) != cmm::invalid_info) return 10;
-    if (cmm::lookup::get_constructor<>(constructor_id) != cmm::invalid_info) return 11;
-    if (cmm::lookup::get_destructor(constructor_id) != cmm::invalid_info) return 12;
+    if (cmm::lookup::get_constructor<>(class_id) != constructor_id) return 12;
+    if (cmm::lookup::get_destructor(class_id) != destructor_id) return 13;
+    if (cmm::lookup::get_constructor<int>(class_id) != cmm::invalid_info) return 14;
+    if (cmm::lookup::get_constructor<>(constructor_id) != cmm::invalid_info) return 15;
+    if (cmm::lookup::get_destructor(constructor_id) != cmm::invalid_info) return 16;
 
     std::array<cmm::Value, 0> constructor_args{};
     cmm::Value constructed;
-    if (cmm::reflect_invoke(cmm::lookup::get_constructor<>(class_id), constructor_args, constructed) != cmm::Error::Success) return 13;
+    if (cmm::reflect_invoke(cmm::lookup::get_constructor<>(class_id), constructor_args, constructed) != cmm::Error::Success) return 17;
 
     StaticLifecycleProbe** stored_pointer = constructed.get_if<StaticLifecycleProbe*>();
-    if (!stored_pointer || !*stored_pointer) return 14;
+    if (!stored_pointer || !*stored_pointer) return 18;
     StaticLifecycleProbe* instance = *stored_pointer;
-    if (StaticLifecycleProbe::live_instances != 1) return 15;
+    if (StaticLifecycleProbe::live_instances != 1) return 19;
 
     std::array<cmm::Value, 1> destructor_args{cmm::Value(instance)};
     cmm::Value destroyed;
-    if (cmm::reflect_invoke(cmm::lookup::get_destructor(class_id), destructor_args, destroyed) != cmm::Error::Success) return 16;
-    if (StaticLifecycleProbe::live_instances != 0) return 17;
-    if (destroyed.has_value()) return 18;
+    if (cmm::reflect_invoke(cmm::lookup::get_destructor(class_id), destructor_args, destroyed) != cmm::Error::Success) return 20;
+    if (StaticLifecycleProbe::live_instances != 0) return 21;
+    if (destroyed.has_value()) return 22;
 
     return 0;
 }
