@@ -37,7 +37,7 @@ int main()
     cmm::Value identity_result;
     if (cmm::reflect_invoke(identity_id, identity_args, identity_result) != cmm::Error::Success) return 5;
 
-    const int& returned = identity_result.get<const int&>();
+    const int& returned = identity_result.get<const int>();
     if (&returned != &referenced) return 6;
 
     return 0;
