@@ -4,6 +4,7 @@
 #include <array>
 #include <cstddef>
 #include <meta>
+#include <utility>
 
 #include "cmm/annotations.hpp"
 #include "cmm/detail/entities/class.hpp"
