@@ -3,6 +3,7 @@
 #include "cmm/detail/hash/info_hash.hpp"
 #include "cmm/detail/static_active_registry.hpp"
 #include "cmm/detail/static_two_function_registry.hpp"
+#include "cmm/static_invoke.hpp"
 #include "cmm/static_query.hpp"
 
 void static_increment(int& value)
@@ -45,6 +46,14 @@ int main()
 
     const int& returned = identity_result.get<const int>();
     if (&returned != &referenced) return 10;
+
+    int typed_value = 20;
+    cmm::invoke<void>(increment_id, typed_value);
+    if (typed_value != 21) return 11;
+
+    const int typed_referenced = 84;
+    const int& typed_returned = cmm::invoke<const int&>(identity_id, typed_referenced);
+    if (&typed_returned != &typed_referenced) return 12;
 
     return 0;
 }
