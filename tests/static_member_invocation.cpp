@@ -46,11 +46,16 @@ int main()
     const int* value = result.get_if<int>();
     if (!value || *value != 42 || probe.value != 42) return 12;
 
+    StaticMethodProbe* null_probe = nullptr;
+    std::array<cmm::Value, 1> null_args{cmm::Value(null_probe)};
+    cmm::Value null_result;
+    if (cmm::reflect_invoke(method_id, null_args, null_result) != cmm::Error::NullValue) return 13;
+
     const StaticMethodProbe const_probe{99};
     std::array<cmm::Value, 1> const_args{cmm::Value(&const_probe)};
     cmm::Value const_result;
-    if (cmm::reflect_invoke(method_id, const_args, const_result) != cmm::Error::ConstViolation) return 13;
-    if (const_probe.value != 99) return 14;
+    if (cmm::reflect_invoke(method_id, const_args, const_result) != cmm::Error::ConstViolation) return 14;
+    if (const_probe.value != 99) return 15;
 
     return 0;
 }
