@@ -78,6 +78,27 @@ consteval RegistryEntityVariant make_static_type_entity()
             value.set_alignment(alignof(T));
         }
         value.set_flags(make_static_type_flags<TypeRefl>());
+
+        if constexpr (std::meta::is_pointer_type(TypeRefl))
+        {
+            value.set_underlying_type_id(
+                cmm::detail::hash_entity(std::meta::remove_pointer(TypeRefl)));
+        }
+        else if constexpr (std::meta::is_reference_type(TypeRefl))
+        {
+            value.set_underlying_type_id(
+                cmm::detail::hash_entity(std::meta::remove_reference(TypeRefl)));
+        }
+        else if constexpr (std::meta::is_array_type(TypeRefl))
+        {
+            value.set_underlying_type_id(
+                cmm::detail::hash_entity(std::meta::remove_extent(TypeRefl)));
+            if constexpr (std::meta::is_bounded_array_type(TypeRefl))
+            {
+                value.set_array_extent(std::meta::extent(TypeRefl, 0));
+            }
+        }
+
         return value;
     }
 }
