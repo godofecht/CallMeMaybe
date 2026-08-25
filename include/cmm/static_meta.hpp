@@ -127,6 +127,57 @@ inline std::vector<cmm::info> nonstatic_data_members_of(cmm::info i)
     return {view.begin(), view.end()};
 }
 
+inline std::span<const cmm::info> bases_view_of(cmm::info i)
+{
+    if (!detail::static_valid(i)) return {};
+    const auto* cls = detail::active_static_registry().try_get_as<detail::Class>(i);
+    return cls ? cls->bases() : std::span<const cmm::info>{};
+}
+
+inline std::vector<cmm::info> bases_of(cmm::info i)
+{
+    const auto view = bases_view_of(i);
+    return {view.begin(), view.end()};
+}
+
+inline bool is_base(cmm::info i)
+{
+    if (!detail::static_valid(i)) return false;
+    return detail::active_static_registry().try_get_as<detail::Base>(i) != nullptr;
+}
+
+inline bool is_virtual_base(cmm::info i)
+{
+    const auto* base = detail::static_valid(i)
+        ? detail::active_static_registry().try_get_as<detail::Base>(i)
+        : nullptr;
+    return base && base->is_virtual();
+}
+
+inline bool is_public_base(cmm::info i)
+{
+    const auto* base = detail::static_valid(i)
+        ? detail::active_static_registry().try_get_as<detail::Base>(i)
+        : nullptr;
+    return base && base->access() == detail::Access::Public;
+}
+
+inline bool is_protected_base(cmm::info i)
+{
+    const auto* base = detail::static_valid(i)
+        ? detail::active_static_registry().try_get_as<detail::Base>(i)
+        : nullptr;
+    return base && base->access() == detail::Access::Protected;
+}
+
+inline bool is_private_base(cmm::info i)
+{
+    const auto* base = detail::static_valid(i)
+        ? detail::active_static_registry().try_get_as<detail::Base>(i)
+        : nullptr;
+    return base && base->access() == detail::Access::Private;
+}
+
 inline std::vector<cmm::info> enumerators_of(cmm::info i)
 {
     if (!detail::static_valid(i)) return {};
@@ -173,6 +224,28 @@ inline cmm::Error reflect_invoke(cmm::info target, std::span<Value> args, Value&
     if (!detail::static_valid(target)) return cmm::Error::EntityNotFound;
     const auto* function = detail::active_static_registry().try_get_as<detail::Function>(target);
     if (!function) return cmm::Error::NotInvocable;
+
+    if (function->is_member_function() && !function->is_static_function() &&
+        !function->is_constructor() && !function->is_destructor())
+    {
+        if (args.empty()) return cmm::Error::InvalidArgumentCount;
+        if (args[0].pointee_type_id() == cmm::invalid_info) return cmm::Error::InvalidArgumentType;
+        if (args[0].pointee_is_const() && !function->is_const_member_function())
+        {
+            return cmm::Error::ConstViolation;
+        }
+
+        const void* instance = args[0].object_pointer();
+        if (!instance) return cmm::Error::NullValue;
+
+        const void* adjusted = nullptr;
+        const cmm::Error adjust = detail::active_static_registry().adjust_instance_pointer(
+            args[0].pointee_type_id(), function->parent_id(), instance, adjusted);
+        if (adjust != cmm::Error::Success) return adjust;
+
+        return function->invoke(args, out, adjusted);
+    }
+
     return function->invoke(args, out);
 }
 
