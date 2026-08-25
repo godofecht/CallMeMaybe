@@ -79,6 +79,7 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] remove transitional runtime-owned Function/Enum fallback containers
 - [x] dependency-stub / full-entity split
 - [x] consteval entity/name indexes and non-templated runtime `RegistryView`
+- [x] reject duplicate entity IDs during static registry construction
 - [ ] eliminate startup registration without semantic regression
 - [x] GCC 16.2 release + ASan/UBSan validation on the implemented static backend
 - [ ] Clang/P2996 validation on the new backend
