@@ -4,6 +4,7 @@
 #include "cmm/detail/hash/info_hash.hpp"
 #include "cmm/detail/static_active_registry.hpp"
 #include "cmm/detail/static_lifecycle_registry.hpp"
+#include "cmm/static_lifecycle.hpp"
 #include "cmm/static_meta.hpp"
 
 struct StaticLifecycleProbe
@@ -42,20 +43,26 @@ int main()
     if (members.size() != 2) return 6;
     if (members[0] != constructor_id || members[1] != destructor_id) return 7;
 
+    if (cmm::lookup::get_constructor<>(class_id) != constructor_id) return 8;
+    if (cmm::lookup::get_destructor(class_id) != destructor_id) return 9;
+    if (cmm::lookup::get_constructor<int>(class_id) != cmm::invalid_info) return 10;
+    if (cmm::lookup::get_constructor<>(constructor_id) != cmm::invalid_info) return 11;
+    if (cmm::lookup::get_destructor(constructor_id) != cmm::invalid_info) return 12;
+
     std::array<cmm::Value, 0> constructor_args{};
     cmm::Value constructed;
-    if (cmm::reflect_invoke(constructor_id, constructor_args, constructed) != cmm::Error::Success) return 8;
+    if (cmm::reflect_invoke(cmm::lookup::get_constructor<>(class_id), constructor_args, constructed) != cmm::Error::Success) return 13;
 
     StaticLifecycleProbe** stored_pointer = constructed.get_if<StaticLifecycleProbe*>();
-    if (!stored_pointer || !*stored_pointer) return 9;
+    if (!stored_pointer || !*stored_pointer) return 14;
     StaticLifecycleProbe* instance = *stored_pointer;
-    if (StaticLifecycleProbe::live_instances != 1) return 10;
+    if (StaticLifecycleProbe::live_instances != 1) return 15;
 
     std::array<cmm::Value, 1> destructor_args{cmm::Value(instance)};
     cmm::Value destroyed;
-    if (cmm::reflect_invoke(destructor_id, destructor_args, destroyed) != cmm::Error::Success) return 11;
-    if (StaticLifecycleProbe::live_instances != 0) return 12;
-    if (destroyed.has_value()) return 13;
+    if (cmm::reflect_invoke(cmm::lookup::get_destructor(class_id), destructor_args, destroyed) != cmm::Error::Success) return 16;
+    if (StaticLifecycleProbe::live_instances != 0) return 17;
+    if (destroyed.has_value()) return 18;
 
     return 0;
 }
