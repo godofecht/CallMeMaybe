@@ -41,3 +41,7 @@ add_test(NAME cmm_static_reference_invocation COMMAND cmm_static_reference_invoc
 add_executable(cmm_static_member_invocation static_member_invocation.cpp)
 target_link_libraries(cmm_static_member_invocation PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_member_invocation COMMAND cmm_static_member_invocation)
+
+add_executable(cmm_static_lifecycle_invocation static_lifecycle_invocation.cpp)
+target_link_libraries(cmm_static_lifecycle_invocation PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_lifecycle_invocation COMMAND cmm_static_lifecycle_invocation)
