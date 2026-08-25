@@ -1,3 +1,4 @@
+#include <array>
 #include <string_view>
 
 #include "cmm/detail/hash/info_hash.hpp"
@@ -41,6 +42,19 @@ int main()
     if (cmm::parent_of(two_param) != two_id) return 9;
     if (cmm::type_of(one_param) != int_id) return 10;
     if (cmm::type_of(two_param) != int_id) return 11;
+
+    std::array<cmm::Value, 1> first_args{cmm::Value(41)};
+    cmm::Value first_result;
+    if (cmm::reflect_invoke(one_id, first_args, first_result) != cmm::Error::Success) return 12;
+    if (first_result.get<int>() != 41) return 13;
+
+    std::array<cmm::Value, 1> second_args{cmm::Value(41)};
+    cmm::Value second_result;
+    if (cmm::reflect_invoke(two_id, second_args, second_result) != cmm::Error::Success) return 14;
+    if (second_result.get<int>() != 42) return 15;
+
+    cmm::Value not_invocable_result;
+    if (cmm::reflect_invoke(int_id, {}, not_invocable_result) != cmm::Error::NotInvocable) return 16;
 
     return 0;
 }
