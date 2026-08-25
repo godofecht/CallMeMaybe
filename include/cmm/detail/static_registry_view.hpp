@@ -8,6 +8,7 @@
 #include <utility>
 #include <variant>
 
+#include "cmm/error.hpp"
 #include "cmm/info.hpp"
 #include "cmm/detail/entities/base.hpp"
 #include "cmm/detail/entities/class.hpp"
@@ -170,11 +171,76 @@ public:
         return cmm::invalid_info;
     }
 
+    cmm::Error adjust_instance_pointer(cmm::info actual_class_id,
+                                       cmm::info target_class_id,
+                                       const void* instance,
+                                       const void*& out) const
+    {
+        if (!instance) return cmm::Error::NullValue;
+        if (actual_class_id == target_class_id)
+        {
+            out = instance;
+            return cmm::Error::Success;
+        }
+
+        const void* candidate = nullptr;
+        bool found = false;
+        bool ambiguous = false;
+        collect_base_adjustments(actual_class_id, target_class_id, instance,
+                                 candidate, found, ambiguous);
+        if (!found || ambiguous) return cmm::Error::InvalidArgumentType;
+
+        out = candidate;
+        return cmm::Error::Success;
+    }
+
     constexpr std::size_t entity_count() const { return entities_.size(); }
     constexpr std::size_t name_count() const { return names_.size(); }
 
 private:
     using EntityEntry = std::pair<cmm::info, RegistryEntityVariant>;
+
+    void collect_base_adjustments(cmm::info current_class_id,
+                                  cmm::info target_class_id,
+                                  const void* current_instance,
+                                  const void*& candidate,
+                                  bool& found,
+                                  bool& ambiguous) const
+    {
+        if (ambiguous) return;
+
+        const Class* cls = try_get_as<Class>(current_class_id);
+        if (!cls) return;
+
+        for (cmm::info base_id : cls->bases())
+        {
+            const Base* base = try_get_as<Base>(base_id);
+            if (!base || !base->is_runtime_accessible()) continue;
+
+            const void* base_instance = base->upcast(current_instance);
+            if (!base_instance) continue;
+
+            if (base->type_id() == target_class_id)
+            {
+                if (!found)
+                {
+                    candidate = base_instance;
+                    found = true;
+                }
+                else if (candidate != base_instance)
+                {
+                    ambiguous = true;
+                    return;
+                }
+            }
+            else
+            {
+                collect_base_adjustments(base->type_id(), target_class_id,
+                                         base_instance, candidate, found, ambiguous);
+                if (ambiguous) return;
+            }
+        }
+    }
 
     constexpr std::span<const EntityEntry>::iterator find_entity(cmm::info id) const
     {
