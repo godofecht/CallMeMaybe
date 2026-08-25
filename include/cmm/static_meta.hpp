@@ -173,12 +173,6 @@ inline cmm::Error reflect_invoke(cmm::info target, std::span<Value> args, Value&
     if (!detail::static_valid(target)) return cmm::Error::EntityNotFound;
     const auto* function = detail::active_static_registry().try_get_as<detail::Function>(target);
     if (!function) return cmm::Error::NotInvocable;
-
-    if (function->is_member_function() && !function->is_static_function())
-    {
-        return cmm::Error::NotInvocable;
-    }
-
     return function->invoke(args, out);
 }
 
