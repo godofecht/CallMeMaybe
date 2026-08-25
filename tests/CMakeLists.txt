@@ -73,3 +73,7 @@ add_test(NAME cmm_static_type_predicates COMMAND cmm_static_type_predicates)
 add_executable(cmm_static_move_only_invocation static_move_only_invocation.cpp)
 target_link_libraries(cmm_static_move_only_invocation PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_move_only_invocation COMMAND cmm_static_move_only_invocation)
+
+add_executable(cmm_static_move_only_parameter static_move_only_parameter.cpp)
+target_link_libraries(cmm_static_move_only_parameter PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_move_only_parameter COMMAND cmm_static_move_only_parameter)
