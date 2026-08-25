@@ -12,6 +12,7 @@
 #include "cmm/detail/entities/parameter.hpp"
 #include "cmm/detail/entities/type.hpp"
 #include "cmm/detail/hash/info_hash.hpp"
+#include "cmm/detail/invocation/thunk.hpp"
 #include "cmm/detail/static_function_enum_metadata.hpp"
 #include "cmm/detail/static_registry_view.hpp"
 
@@ -56,6 +57,7 @@ consteval auto make_two_function_static_registry()
     first.set_display_name(std::meta::display_string_of(FirstFuncRefl));
     first.set_return_type_id(scalar_type_id);
     first.set_parameter_ids(StaticFunctionMetadata<FirstFuncRefl>::parameter_ids);
+    first.set_thunk(cmm::detail::create_thunk<FirstFuncRefl>());
 
     Parameter first_param(std::meta::identifier_of(first_parameter),
                           scalar_type_id,
@@ -68,6 +70,7 @@ consteval auto make_two_function_static_registry()
     second.set_display_name(std::meta::display_string_of(SecondFuncRefl));
     second.set_return_type_id(scalar_type_id);
     second.set_parameter_ids(StaticFunctionMetadata<SecondFuncRefl>::parameter_ids);
+    second.set_thunk(cmm::detail::create_thunk<SecondFuncRefl>());
 
     Parameter second_param(std::meta::identifier_of(second_parameter),
                            scalar_type_id,
