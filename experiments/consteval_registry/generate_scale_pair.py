@@ -20,14 +20,14 @@ def runtime_source(count: int) -> str:
         "int main()",
         "{",
         "    using clock = std::chrono::steady_clock;",
-        "    const auto startup_begin = clock::now();",
+        "    const auto registration_begin = clock::now();",
     ]
     for index in range(count):
         lines.append(
             f"    if (cmm::register_rrefl<^^ScaleType_{index}>() != cmm::Error::Success) return 1;"
         )
     lines += [
-        "    const auto startup_end = clock::now();",
+        "    const auto registration_end = clock::now();",
         "    std::uint64_t checksum = 0;",
         "    const auto lookup_begin = clock::now();",
     ]
@@ -38,9 +38,9 @@ def runtime_source(count: int) -> str:
     lines += [
         "    const auto lookup_end = clock::now();",
         f"    if (checksum != {count}ULL) return 2;",
-        "    const double startup_ns = std::chrono::duration<double, std::nano>(startup_end - startup_begin).count();",
+        "    const double registration_ns = std::chrono::duration<double, std::nano>(registration_end - registration_begin).count();",
         "    const double lookup_ns = std::chrono::duration<double, std::nano>(lookup_end - lookup_begin).count();",
-        f"    std::cout << \"{{\\\"backend\\\":\\\"runtime\\\",\\\"entity_count\\\":{count},\\\"startup_ns\\\":\" << startup_ns",
+        f"    std::cout << \"{{\\\"backend\\\":\\\"runtime\\\",\\\"entity_count\\\":{count},\\\"main_registration_ns\\\":\" << registration_ns",
         "              << \",\\\"lookup_ns\\\":\" << lookup_ns",
         "              << \",\\\"checksum\\\":\" << checksum << \"}\\n\";",
         "    return 0;",
@@ -69,8 +69,6 @@ def static_source(count: int) -> str:
         "int main()",
         "{",
         "    using clock = std::chrono::steady_clock;",
-        "    const auto startup_begin = clock::now();",
-        "    const auto startup_end = clock::now();",
         "    std::uint64_t checksum = 0;",
         "    const auto lookup_begin = clock::now();",
     ]
@@ -81,10 +79,8 @@ def static_source(count: int) -> str:
     lines += [
         "    const auto lookup_end = clock::now();",
         f"    if (checksum != {count}ULL) return 2;",
-        "    const double startup_ns = std::chrono::duration<double, std::nano>(startup_end - startup_begin).count();",
         "    const double lookup_ns = std::chrono::duration<double, std::nano>(lookup_end - lookup_begin).count();",
-        f"    std::cout << \"{{\\\"backend\\\":\\\"consteval\\\",\\\"entity_count\\\":{count},\\\"startup_ns\\\":\" << startup_ns",
-        "              << \",\\\"lookup_ns\\\":\" << lookup_ns",
+        f"    std::cout << \"{{\\\"backend\\\":\\\"consteval\\\",\\\"entity_count\\\":{count},\\\"main_registration_ns\\\":0,\\\"lookup_ns\\\":\" << lookup_ns",
         "              << \",\\\"checksum\\\":\" << checksum << \"}\\n\";",
         "    return 0;",
         "}",
