@@ -68,5 +68,14 @@ int main()
     if (StaticLifecycleProbe::live_instances != 0) return 21;
     if (destroyed.has_value()) return 22;
 
+    {
+        cmm::DynamicObject managed = cmm::construct(class_id);
+        if (!managed) return 23;
+        if (!managed.get<StaticLifecycleProbe>()) return 24;
+        if (StaticLifecycleProbe::live_instances != 1) return 25;
+    }
+
+    if (StaticLifecycleProbe::live_instances != 0) return 26;
+
     return 0;
 }
