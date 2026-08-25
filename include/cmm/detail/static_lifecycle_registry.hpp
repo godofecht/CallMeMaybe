@@ -30,15 +30,12 @@ struct StaticLifecycleMetadata
 
         template for (constexpr std::meta::info member : members)
         {
-            if (std::meta::is_constructor(member) && cmm::is_reflectable(member))
+            if (std::meta::is_constructor(member) &&
+                cmm::is_reflectable(member) &&
+                std::meta::parameters_of(member).empty())
             {
-                static constexpr auto parameters =
-                    std::define_static_array(std::meta::parameters_of(member));
-                if (parameters.empty())
-                {
-                    ctor = member;
-                    ++ctor_count;
-                }
+                ctor = member;
+                ++ctor_count;
             }
             else if (std::meta::is_destructor(member))
             {
