@@ -57,3 +57,7 @@ add_test(NAME cmm_static_overloaded_method_invocation COMMAND cmm_static_overloa
 add_executable(cmm_static_member_order static_member_order.cpp)
 target_link_libraries(cmm_static_member_order PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_member_order COMMAND cmm_static_member_order)
+
+add_executable(cmm_static_type_predicates static_type_predicates.cpp)
+target_link_libraries(cmm_static_type_predicates PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_type_predicates COMMAND cmm_static_type_predicates)
