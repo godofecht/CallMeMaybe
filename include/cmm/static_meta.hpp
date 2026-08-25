@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "cmm/info.hpp"
+#include "cmm/value.hpp"
 #include "cmm/detail/static_active_registry.hpp"
 
 namespace cmm {
@@ -165,6 +166,20 @@ inline std::vector<cmm::info> parameters_of(cmm::info i)
 {
     const auto view = parameters_view_of(i);
     return {view.begin(), view.end()};
+}
+
+inline cmm::Error reflect_invoke(cmm::info target, std::span<Value> args, Value& out)
+{
+    if (!detail::static_valid(target)) return cmm::Error::EntityNotFound;
+    const auto* function = detail::active_static_registry().try_get_as<detail::Function>(target);
+    if (!function) return cmm::Error::NotInvocable;
+
+    if (function->is_member_function() && !function->is_static_function())
+    {
+        return cmm::Error::NotInvocable;
+    }
+
+    return function->invoke(args, out);
 }
 
 inline std::size_t size_of(cmm::info i)
