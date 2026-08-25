@@ -38,63 +38,119 @@ consteval auto make_two_function_static_registry()
     constexpr std::meta::info FirstReturnTypeRefl = std::meta::return_type_of(FirstFuncRefl);
     constexpr std::meta::info SecondReturnTypeRefl = std::meta::return_type_of(SecondFuncRefl);
 
-    static_assert(cmm::detail::hash_entity(FirstParameterTypeRefl) ==
-                  cmm::detail::hash_entity(SecondParameterTypeRefl));
-    static_assert(cmm::detail::hash_entity(FirstReturnTypeRefl) ==
-                  cmm::detail::hash_entity(SecondReturnTypeRefl));
-    static_assert(cmm::detail::hash_entity(FirstParameterTypeRefl) ==
-                  cmm::detail::hash_entity(FirstReturnTypeRefl));
+    constexpr cmm::info first_parameter_type_id = cmm::detail::hash_entity(FirstParameterTypeRefl);
+    constexpr cmm::info second_parameter_type_id = cmm::detail::hash_entity(SecondParameterTypeRefl);
+    constexpr cmm::info first_return_type_id = cmm::detail::hash_entity(FirstReturnTypeRefl);
+    constexpr cmm::info second_return_type_id = cmm::detail::hash_entity(SecondReturnTypeRefl);
 
-    using ScalarT = typename[:FirstParameterTypeRefl:];
+    constexpr bool second_parameter_type_is_new =
+        second_parameter_type_id != first_parameter_type_id;
+    constexpr bool first_return_type_is_new =
+        first_return_type_id != first_parameter_type_id &&
+        first_return_type_id != second_parameter_type_id;
+    constexpr bool second_return_type_is_new =
+        second_return_type_id != first_parameter_type_id &&
+        second_return_type_id != second_parameter_type_id &&
+        second_return_type_id != first_return_type_id;
+    constexpr std::size_t type_count =
+        1 +
+        static_cast<std::size_t>(second_parameter_type_is_new) +
+        static_cast<std::size_t>(first_return_type_is_new) +
+        static_cast<std::size_t>(second_return_type_is_new);
+
+    using FirstParameterT = typename[:FirstParameterTypeRefl:];
+    using SecondParameterT = typename[:SecondParameterTypeRefl:];
+    using FirstReturnT = typename[:FirstReturnTypeRefl:];
+    using SecondReturnT = typename[:SecondReturnTypeRefl:];
 
     const cmm::info first_func_id = cmm::detail::hash_entity(FirstFuncRefl);
     const cmm::info second_func_id = cmm::detail::hash_entity(SecondFuncRefl);
     const cmm::info first_parameter_id = cmm::detail::hash_entity(first_parameter);
     const cmm::info second_parameter_id = cmm::detail::hash_entity(second_parameter);
-    const cmm::info scalar_type_id = cmm::detail::hash_entity(FirstParameterTypeRefl);
 
     Function first(std::meta::identifier_of(FirstFuncRefl));
     first.set_display_name(std::meta::display_string_of(FirstFuncRefl));
-    first.set_return_type_id(scalar_type_id);
+    first.set_return_type_id(first_return_type_id);
     first.set_parameter_ids(StaticFunctionMetadata<FirstFuncRefl>::parameter_ids);
     first.set_thunk(cmm::detail::create_thunk<FirstFuncRefl>());
 
     Parameter first_param(std::meta::identifier_of(first_parameter),
-                          scalar_type_id,
+                          first_parameter_type_id,
                           first_func_id,
                           0);
     first_param.set_display_name(std::meta::display_string_of(first_parameter));
-    first_param.set_decayed_type_id(scalar_type_id);
+    first_param.set_decayed_type_id(first_parameter_type_id);
 
     Function second(std::meta::identifier_of(SecondFuncRefl));
     second.set_display_name(std::meta::display_string_of(SecondFuncRefl));
-    second.set_return_type_id(scalar_type_id);
+    second.set_return_type_id(second_return_type_id);
     second.set_parameter_ids(StaticFunctionMetadata<SecondFuncRefl>::parameter_ids);
     second.set_thunk(cmm::detail::create_thunk<SecondFuncRefl>());
 
     Parameter second_param(std::meta::identifier_of(second_parameter),
-                           scalar_type_id,
+                           second_parameter_type_id,
                            second_func_id,
                            0);
     second_param.set_display_name(std::meta::display_string_of(second_parameter));
-    second_param.set_decayed_type_id(scalar_type_id);
+    second_param.set_decayed_type_id(second_parameter_type_id);
 
-    Type scalar_type(std::meta::display_string_of(FirstParameterTypeRefl));
-    if constexpr (!std::is_reference_v<ScalarT> &&
-                  !std::is_void_v<ScalarT> &&
-                  !std::is_function_v<ScalarT>)
+    Type first_parameter_type(std::meta::display_string_of(FirstParameterTypeRefl));
+    if constexpr (!std::is_reference_v<FirstParameterT> &&
+                  !std::is_void_v<FirstParameterT> &&
+                  !std::is_function_v<FirstParameterT>)
     {
-        scalar_type.set_size(sizeof(ScalarT));
-        scalar_type.set_alignment(alignof(ScalarT));
+        first_parameter_type.set_size(sizeof(FirstParameterT));
+        first_parameter_type.set_alignment(alignof(FirstParameterT));
     }
 
-    std::array<std::pair<cmm::info, RegistryEntityVariant>, 5> entities{{
-        {first_func_id, first},
-        {first_parameter_id, first_param},
-        {second_func_id, second},
-        {second_parameter_id, second_param},
-        {scalar_type_id, scalar_type},
-    }};
+    Type second_parameter_type(std::meta::display_string_of(SecondParameterTypeRefl));
+    if constexpr (!std::is_reference_v<SecondParameterT> &&
+                  !std::is_void_v<SecondParameterT> &&
+                  !std::is_function_v<SecondParameterT>)
+    {
+        second_parameter_type.set_size(sizeof(SecondParameterT));
+        second_parameter_type.set_alignment(alignof(SecondParameterT));
+    }
+
+    Type first_return_type(std::meta::display_string_of(FirstReturnTypeRefl));
+    if constexpr (!std::is_reference_v<FirstReturnT> &&
+                  !std::is_void_v<FirstReturnT> &&
+                  !std::is_function_v<FirstReturnT>)
+    {
+        first_return_type.set_size(sizeof(FirstReturnT));
+        first_return_type.set_alignment(alignof(FirstReturnT));
+    }
+
+    Type second_return_type(std::meta::display_string_of(SecondReturnTypeRefl));
+    if constexpr (!std::is_reference_v<SecondReturnT> &&
+                  !std::is_void_v<SecondReturnT> &&
+                  !std::is_function_v<SecondReturnT>)
+    {
+        second_return_type.set_size(sizeof(SecondReturnT));
+        second_return_type.set_alignment(alignof(SecondReturnT));
+    }
+
+    std::array<std::pair<cmm::info, RegistryEntityVariant>, 4 + type_count> entities{};
+    std::size_t entity_index = 0;
+    entities[entity_index++] = {first_func_id, first};
+    entities[entity_index++] = {first_parameter_id, first_param};
+    entities[entity_index++] = {second_func_id, second};
+    entities[entity_index++] = {second_parameter_id, second_param};
+    entities[entity_index++] = {first_parameter_type_id, first_parameter_type};
+
+    if constexpr (second_parameter_type_is_new)
+    {
+        entities[entity_index++] = {second_parameter_type_id, second_parameter_type};
+    }
+    if constexpr (first_return_type_is_new)
+    {
+        entities[entity_index++] = {first_return_type_id, first_return_type};
+    }
+    if constexpr (second_return_type_is_new)
+    {
+        entities[entity_index++] = {second_return_type_id, second_return_type};
+    }
+
     return make_static_registry_data(entities);
 }
 
