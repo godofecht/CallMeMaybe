@@ -61,6 +61,14 @@ No performance claim should be made from a single shared-CI timing run. CI is fo
 
 `StaticRegistryData` owns fixed sorted entity/name arrays, and its consteval builder derives the name index directly from entity storage, sorts both indexes, and marks duplicate names ambiguous with `cmm::invalid_info`. `RegistryView` exposes binary-search lookup through non-templated spans. The public static metadata slice is declared at namespace scope and queried without `register_rrefl`; CI #481 proves that declaration/query path, while CI #484 additionally runs the static-backend parent-aware member-identity regression under GCC 16.2 Release and ASan/UBSan. The remaining semantic gate is the full stabilization regression corpus, followed by Clang/P2996 validation and controlled benchmark comparison.
 
+## Matched scaling harness
+
+`generate_scale_pair.py` now emits two sources from the same synthetic type corpus. The runtime source explicitly registers every reflected type through `register_rrefl`, while the consteval source feeds the same reflected type pack through `make_type_static_registry` and `CMM_USE_STATIC_REGISTRY`. Both execute the same name-lookup checksum, so a comparison run is rejected if either backend cannot resolve the complete corpus.
+
+`run_scale_pair.py` compiles both sources with the same compiler command and optimization flags, records compiler wall time, unstripped and stripped binary size, executes both binaries, and retains each backend's JSON metrics. The in-program registration field is deliberately named `main_registration_ns`: it measures the explicit runtime registration block and is exactly zero for the consteval source. It is not a process-startup measurement. Process startup, peak compiler RSS, heap allocation and publishable timing still require the controlled-machine measurement pass and remain part of the unchecked comparison gate.
+
+The harness defaults to the planned 10 / 100 / 1,000 / 10,000 entity scale points. No generated timing or size result is committed by this implementation step.
+
 ## Upstream strategy
 
 If the port wins materially, the upstreamable result should be small enough to review as architecture rather than as a fork dump: semantic regressions get isolated tests, storage changes get a focused patch, and performance evidence is linked independently. If the consteval backend loses badly on compile time or binary size, that result is still worth publishing; the experiment should not be forced into a predetermined conclusion.
