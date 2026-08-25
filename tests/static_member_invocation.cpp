@@ -10,9 +10,9 @@ struct StaticMethodProbe
 {
     int value = 41;
 
-    [[=cmm::reflectable]] int read() const
+    [[=cmm::reflectable]] int increment()
     {
-        return value + 1;
+        return ++value;
     }
 };
 
@@ -26,10 +26,10 @@ int main()
     const cmm::info int_id = cmm::detail::hash_entity(^^int);
 
     if (cmm::reflect_name("StaticMethodProbe") != class_id) return 1;
-    if (cmm::reflect_name("read") != method_id) return 2;
-    if (cmm::identifier_of(method_id) != std::string_view("read")) return 3;
+    if (cmm::reflect_name("increment") != method_id) return 2;
+    if (cmm::identifier_of(method_id) != std::string_view("increment")) return 3;
     if (cmm::parent_of(method_id) != class_id) return 4;
-    if (cmm::lookup::get_member(class_id, "read") != method_id) return 5;
+    if (cmm::lookup::get_member(class_id, "increment") != method_id) return 5;
 
     const auto members = cmm::members_view_of(class_id);
     if (members.size() != 1 || members[0] != method_id) return 6;
@@ -44,15 +44,13 @@ int main()
     if (cmm::reflect_invoke(method_id, args, result) != cmm::Error::Success) return 11;
 
     const int* value = result.get_if<int>();
-    if (!value || *value != 42) return 12;
+    if (!value || *value != 42 || probe.value != 42) return 12;
 
     const StaticMethodProbe const_probe{99};
     std::array<cmm::Value, 1> const_args{cmm::Value(&const_probe)};
     cmm::Value const_result;
-    if (cmm::reflect_invoke(method_id, const_args, const_result) != cmm::Error::Success) return 13;
-
-    const int* const_value = const_result.get_if<int>();
-    if (!const_value || *const_value != 100) return 14;
+    if (cmm::reflect_invoke(method_id, const_args, const_result) != cmm::Error::ConstViolation) return 13;
+    if (const_probe.value != 99) return 14;
 
     return 0;
 }
