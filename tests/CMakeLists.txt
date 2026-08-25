@@ -18,6 +18,10 @@ add_executable(cmm_static_function_parameters static_function_parameters.cpp)
 target_link_libraries(cmm_static_function_parameters PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_function_parameters COMMAND cmm_static_function_parameters)
 
+add_executable(cmm_static_zero_arg_function static_zero_arg_function.cpp)
+target_link_libraries(cmm_static_zero_arg_function PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_zero_arg_function COMMAND cmm_static_zero_arg_function)
+
 add_executable(cmm_static_enum_metadata static_enum_metadata.cpp)
 target_link_libraries(cmm_static_enum_metadata PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_enum_metadata COMMAND cmm_static_enum_metadata)
