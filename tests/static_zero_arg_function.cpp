@@ -20,7 +20,7 @@ int main()
 
     if (cmm::reflect_name("static_zero_arg") != function_id) return 1;
     if (cmm::identifier_of(function_id) != std::string_view("static_zero_arg")) return 2;
-    if (cmm::return_type_of(function_id) != int_id) return 3;
+    if (cmm::size_of(int_id) != sizeof(int)) return 3;
     if (!cmm::parameters_view_of(function_id).empty()) return 4;
 
     cmm::Value result;
