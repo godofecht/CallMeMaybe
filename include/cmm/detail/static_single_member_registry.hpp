@@ -14,6 +14,7 @@
 #include "cmm/detail/entities/type.hpp"
 #include "cmm/detail/hash/info_hash.hpp"
 #include "cmm/detail/static_registry_view.hpp"
+#include "cmm/detail/static_type_registry.hpp"
 
 namespace cmm::detail {
 
@@ -62,6 +63,7 @@ consteval auto make_single_member_static_registry()
     Class cls(std::meta::display_string_of(ClassRefl));
     cls.set_size(sizeof(ClassT));
     cls.set_alignment(alignof(ClassT));
+    cls.set_flags(make_static_type_flags<ClassRefl>());
     cls.set_members(SingleMemberStaticMetadata<ClassRefl>::member_ids);
     cls.set_nonstatic_data_members(SingleMemberStaticMetadata<ClassRefl>::member_ids);
     cls.set_member_names(SingleMemberStaticMetadata<ClassRefl>::member_names);
@@ -81,6 +83,7 @@ consteval auto make_single_member_static_registry()
         type.set_size(sizeof(MemberT));
         type.set_alignment(alignof(MemberT));
     }
+    type.set_flags(make_static_type_flags<MemberTypeRefl>());
 
     std::array<std::pair<cmm::info, RegistryEntityVariant>, 3> entities{{
         {class_id, cls},
