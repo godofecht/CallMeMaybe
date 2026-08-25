@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <meta>
 #include <string_view>
 
 #include "cmm/detail/hash/info_hash.hpp"
@@ -18,7 +19,8 @@ CMM_USE_STATIC_REGISTRY((cmm::detail::make_enum_static_registry<^^StaticHighBit>
 int main()
 {
     const cmm::info enum_id = cmm::detail::hash_entity(^^StaticHighBit);
-    const cmm::info underlying_id = cmm::detail::hash_entity(^^std::uint64_t);
+    const cmm::info underlying_id =
+        cmm::detail::hash_entity(std::meta::underlying_type(^^StaticHighBit));
     const auto enumerators = cmm::enumerators_of(enum_id);
 
     if (cmm::reflect_name("StaticHighBit") != enum_id) return 1;
