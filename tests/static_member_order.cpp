@@ -47,6 +47,9 @@ int main()
         ok &= expect(cmm::parent_of(members[0]) == class_id, "first parent");
         ok &= expect(cmm::parent_of(members[1]) == class_id, "middle parent");
         ok &= expect(cmm::parent_of(members[2]) == class_id, "last parent");
+        ok &= expect(cmm::lookup::get_member(class_id, "first") == members[0], "first lookup");
+        ok &= expect(cmm::lookup::get_member(class_id, "middle") == members[1], "middle lookup");
+        ok &= expect(cmm::lookup::get_member(class_id, "last") == members[2], "last lookup");
     }
 
     if (data_members.size() == 2)
@@ -56,10 +59,6 @@ int main()
         ok &= expect(cmm::offset_of(data_members[0]) == offsetof(StaticOrderProbe, first), "first offset");
         ok &= expect(cmm::offset_of(data_members[1]) == offsetof(StaticOrderProbe, last), "last offset");
     }
-
-    ok &= expect(cmm::lookup::get_member(class_id, "first") == members[0], "first lookup");
-    ok &= expect(cmm::lookup::get_member(class_id, "middle") == members[1], "middle lookup");
-    ok &= expect(cmm::lookup::get_member(class_id, "last") == members[2], "last lookup");
 
     return ok ? 0 : 1;
 }
