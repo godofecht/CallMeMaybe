@@ -133,7 +133,7 @@ struct StaticThunks {
 };
 
 template <std::meta::info FuncRefl>
-InvokerFn create_thunk() {
+constexpr InvokerFn create_thunk() {
     return [](std::span<Value> args, Value& out,
               const void* instance_override) -> cmm::Error {
         static constexpr auto params = std::define_static_array(std::meta::parameters_of(FuncRefl));
