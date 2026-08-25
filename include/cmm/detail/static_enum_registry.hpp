@@ -13,6 +13,7 @@
 #include "cmm/detail/hash/info_hash.hpp"
 #include "cmm/detail/static_function_enum_metadata.hpp"
 #include "cmm/detail/static_registry_view.hpp"
+#include "cmm/detail/static_type_registry.hpp"
 
 namespace cmm::detail {
 
@@ -35,12 +36,14 @@ consteval auto make_enum_static_registry()
     enumeration.set_display_name(std::meta::display_string_of(EnumRefl));
     enumeration.set_size(sizeof(EnumT));
     enumeration.set_alignment(alignof(EnumT));
+    enumeration.set_flags(make_static_type_flags<EnumRefl>());
     enumeration.set_underlying_type_id(underlying_id);
     enumeration.set_enumerators(StaticEnumMetadata<EnumRefl>::entries);
 
     Type underlying(std::meta::display_string_of(UnderlyingRefl));
     underlying.set_size(sizeof(UnderlyingT));
     underlying.set_alignment(alignof(UnderlyingT));
+    underlying.set_flags(make_static_type_flags<UnderlyingRefl>());
 
     std::array<std::pair<cmm::info, RegistryEntityVariant>, enumerators.size() + 2> entities{};
     entities[0] = {enum_id, enumeration};
