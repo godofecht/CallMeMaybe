@@ -36,6 +36,7 @@ consteval auto make_two_class_static_registry()
     Class first_class(std::meta::display_string_of(FirstClassRefl));
     first_class.set_size(sizeof(FirstClassT));
     first_class.set_alignment(alignof(FirstClassT));
+    first_class.set_flags(make_static_type_flags<FirstClassRefl>());
     first_class.set_members(SingleMemberStaticMetadata<FirstClassRefl>::member_ids);
     first_class.set_nonstatic_data_members(SingleMemberStaticMetadata<FirstClassRefl>::member_ids);
     first_class.set_member_names(SingleMemberStaticMetadata<FirstClassRefl>::member_names);
@@ -52,6 +53,7 @@ consteval auto make_two_class_static_registry()
     Class second_class(std::meta::display_string_of(SecondClassRefl));
     second_class.set_size(sizeof(SecondClassT));
     second_class.set_alignment(alignof(SecondClassT));
+    second_class.set_flags(make_static_type_flags<SecondClassRefl>());
     second_class.set_members(SingleMemberStaticMetadata<SecondClassRefl>::member_ids);
     second_class.set_nonstatic_data_members(SingleMemberStaticMetadata<SecondClassRefl>::member_ids);
     second_class.set_member_names(SingleMemberStaticMetadata<SecondClassRefl>::member_names);
@@ -71,6 +73,7 @@ consteval auto make_two_class_static_registry()
         member_type.set_size(sizeof(MemberT));
         member_type.set_alignment(alignof(MemberT));
     }
+    member_type.set_flags(make_static_type_flags<FirstMemberTypeRefl>());
 
     std::array<std::pair<cmm::info, RegistryEntityVariant>, 5> entities{{
         {first_class_id, first_class},
