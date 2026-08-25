@@ -55,8 +55,22 @@ consteval auto make_single_base_static_registry()
 
     Base base_entity(std::meta::display_string_of(base), base_type_id, derived_id);
     base_entity.set_is_virtual(std::meta::is_virtual(base));
-    base_entity.set_access(std::meta::is_public(base) ? Access::Public :
-                           std::meta::is_protected(base) ? Access::Protected : Access::Private);
+    if constexpr (std::meta::is_public(base))
+    {
+        base_entity.set_access(Access::Public);
+        base_entity.set_upcast_thunk(+[](const void* instance) -> const void*
+        {
+            return static_cast<const BaseT*>(static_cast<const DerivedT*>(instance));
+        });
+    }
+    else if constexpr (std::meta::is_protected(base))
+    {
+        base_entity.set_access(Access::Protected);
+    }
+    else
+    {
+        base_entity.set_access(Access::Private);
+    }
 
     std::array<std::pair<cmm::info, RegistryEntityVariant>, 3> entities{{
         {derived_id, derived},
