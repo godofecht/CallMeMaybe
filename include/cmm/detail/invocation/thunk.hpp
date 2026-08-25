@@ -210,7 +210,7 @@ constexpr InvokerFn create_thunk() {
 }
 
 template <std::meta::info ConstructorRefl>
-InvokerFn create_constructor_thunk() {
+constexpr InvokerFn create_constructor_thunk() {
     return [](std::span<Value> args, Value& out, const void*) -> cmm::Error {
         static constexpr auto params = std::define_static_array(std::meta::parameters_of(ConstructorRefl));
         constexpr std::size_t num_params = params.size();
@@ -231,7 +231,7 @@ InvokerFn create_constructor_thunk() {
 }
 
 template <std::meta::info DestructorRefl>
-InvokerFn create_destructor_thunk() {
+constexpr InvokerFn create_destructor_thunk() {
     return [](std::span<Value> args, Value& out, const void*) -> cmm::Error {
         if (args.size() != 1) return cmm::Error::InvalidArgumentCount;
 
