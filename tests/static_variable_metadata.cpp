@@ -3,7 +3,7 @@
 #include "cmm/detail/hash/info_hash.hpp"
 #include "cmm/detail/static_active_registry.hpp"
 #include "cmm/detail/static_two_variable_registry.hpp"
-#include "cmm/static_meta.hpp"
+#include "cmm/static_query.hpp"
 
 const int static_const_global = 7;
 int static_mutable_global = 8;
@@ -25,16 +25,16 @@ int main()
     if (cmm::type_of(const_id) != const_type_id) return 5;
     if (cmm::type_of(mutable_id) != mutable_type_id) return 6;
 
+    if (cmm::const_address_of(const_id) != &static_const_global) return 7;
+    if (cmm::address_of(const_id) != nullptr) return 8;
+    if (cmm::const_address_of(mutable_id) != &static_mutable_global) return 9;
+    if (cmm::address_of(mutable_id) != &static_mutable_global) return 10;
+
     const auto* const_variable =
         cmm::detail::active_static_registry().try_get_as<cmm::detail::Variable>(const_id);
     const auto* mutable_variable =
         cmm::detail::active_static_registry().try_get_as<cmm::detail::Variable>(mutable_id);
-    if (!const_variable || !mutable_variable) return 7;
-
-    if (const_variable->address() != &static_const_global) return 8;
-    if (const_variable->mutable_address() != nullptr) return 9;
-    if (mutable_variable->address() != &static_mutable_global) return 10;
-    if (mutable_variable->mutable_address() != &static_mutable_global) return 11;
+    if (!const_variable || !mutable_variable) return 11;
 
     cmm::Value const_value;
     if (const_variable->get_value(const_value) != cmm::Error::Success) return 12;
