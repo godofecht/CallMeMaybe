@@ -25,3 +25,7 @@ add_test(NAME cmm_static_enum_metadata COMMAND cmm_static_enum_metadata)
 add_executable(cmm_static_base_metadata static_base_metadata.cpp)
 target_link_libraries(cmm_static_base_metadata PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_base_metadata COMMAND cmm_static_base_metadata)
+
+add_executable(cmm_static_variable_metadata static_variable_metadata.cpp)
+target_link_libraries(cmm_static_variable_metadata PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_variable_metadata COMMAND cmm_static_variable_metadata)
