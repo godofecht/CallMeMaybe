@@ -3,6 +3,7 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdlib>
 #include <span>
 #include <string_view>
 #include <utility>
@@ -64,11 +65,33 @@ constexpr std::string_view registry_entity_display_name(const RegistryEntityVari
     return std::visit([](const auto& value) -> std::string_view { return value.display_name(); }, entity);
 }
 
+template <std::size_t EntityCount>
+constexpr bool static_registry_has_duplicate_ids(
+    const std::array<std::pair<cmm::info, RegistryEntityVariant>, EntityCount>& entities)
+{
+    for (std::size_t i = 0; i < EntityCount; ++i)
+    {
+        for (std::size_t j = i + 1; j < EntityCount; ++j)
+        {
+            if (entities[i].first == entities[j].first) return true;
+        }
+    }
+    return false;
+}
+
+template <std::size_t EntityCount>
+consteval void validate_static_registry_entity_ids(
+    const std::array<std::pair<cmm::info, RegistryEntityVariant>, EntityCount>& entities)
+{
+    if (static_registry_has_duplicate_ids(entities)) std::abort();
+}
+
 template <std::size_t EntityCount, std::size_t NameCount>
 consteval StaticRegistryData<EntityCount, NameCount> make_static_registry_data(
     std::array<std::pair<cmm::info, RegistryEntityVariant>, EntityCount> entities,
     std::array<std::pair<std::string_view, cmm::info>, NameCount> names)
 {
+    validate_static_registry_entity_ids(entities);
     insertion_sort(entities, [](const auto& entry) { return entry.first; });
     insertion_sort(names, [](const auto& entry) { return entry.first; });
     return StaticRegistryData<EntityCount, NameCount>{entities, names};
@@ -78,6 +101,8 @@ template <std::size_t EntityCount>
 consteval StaticRegistryData<EntityCount, EntityCount> make_static_registry_data(
     std::array<std::pair<cmm::info, RegistryEntityVariant>, EntityCount> entities)
 {
+    validate_static_registry_entity_ids(entities);
+
     std::array<std::pair<std::string_view, cmm::info>, EntityCount> names{};
     for (std::size_t i = 0; i < EntityCount; ++i)
     {
