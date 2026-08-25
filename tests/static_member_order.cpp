@@ -14,8 +14,8 @@ struct StaticOrderProbe
     [[=cmm::reflectable]] int last = 0;
 };
 
-CMM_DEFINE_STATIC_REGISTRY(
-    cmm::detail::make_mixed_member_static_registry<^^StaticOrderProbe>());
+CMM_USE_STATIC_REGISTRY(
+    (cmm::detail::make_mixed_member_static_registry<^^StaticOrderProbe>()))
 
 static bool expect(bool condition, std::string_view message)
 {
