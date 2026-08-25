@@ -95,11 +95,13 @@ https://github.com/godofecht/CallMeMaybe/pull/6
 - [x] machine/compiler/commit metadata collector
 - [ ] committed controlled-machine benchmark results
 - [ ] retained minimized reflection disagreements
-- [ ] consteval-registry comparison
+- [x] consteval-registry comparison
 - [x] Flow bridge binding-size / overhead result
 - [ ] final findings section
 - [x] focused upstream candidate list
 - [x] concise Laurie-facing summary backed by reproducers and patches
+
+The consteval-registry comparison is retained in PR #6 as an architectural/semantic comparison with machine-readable status. It explicitly leaves controlled-machine performance, full static-backend stabilization equivalence, and Clang/P2996 validation unresolved rather than inferring them from implementation progress.
 
 Flow bridge footprint evidence is retained from PR #4 CI #465 in PR #6 at `research/evidence/flow_bridge_ci465.json`; it records deterministic generated-wrapper and ABI-storage sizes only, not shared-CI latency.
 
