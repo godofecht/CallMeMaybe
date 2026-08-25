@@ -49,3 +49,7 @@ add_test(NAME cmm_static_lifecycle_invocation COMMAND cmm_static_lifecycle_invoc
 add_executable(cmm_static_overloaded_method_invocation static_overloaded_method_invocation.cpp)
 target_link_libraries(cmm_static_overloaded_method_invocation PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_overloaded_method_invocation COMMAND cmm_static_overloaded_method_invocation)
+
+add_executable(cmm_static_member_order static_member_order.cpp)
+target_link_libraries(cmm_static_member_order PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_member_order COMMAND cmm_static_member_order)
