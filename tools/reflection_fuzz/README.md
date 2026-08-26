@@ -81,3 +81,15 @@ python3 tools/reflection_fuzz/merge_campaign.py \
 ```
 
 The merged manifest preserves the compiler commands and campaign parameters, recomputes status totals from the records, sorts records deterministically by seed then family, and retains the source shard paths. Its exit classification matches `campaign.py`: semantic disagreements exit 3, compile/invariant/runner failures exit 1, and a complete all-green campaign exits 0.
+
+## Minimize a completed campaign
+
+`minimize_campaign.py` consumes the retained campaign manifest, selects only records classified as semantic disagreements, and reruns `minimize.py` with the exact retained compiler commands, corpus family, seed and original case count for each disagreement. It writes one minimized artifact directory per `(family, seed)` plus `minimized_campaign.json`, which is updated after every minimization so a partial local run is still auditable.
+
+```sh
+python3 tools/reflection_fuzz/minimize_campaign.py \
+  reflection-fuzz-campaign/campaign.json \
+  --output-dir reflection-fuzz-campaign/minimized
+```
+
+The driver rejects a campaign whose disagreement count disagrees with its program records or whose compiler commands are missing. Minimization failures remain failures in the summary instead of being promoted as retained disagreements. A campaign with no semantic disagreements produces an explicit zero-disagreement summary.
