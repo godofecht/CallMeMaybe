@@ -8,6 +8,14 @@ import sys
 from pathlib import Path
 
 
+def selected_seeds(seed_start: int, programs: int, shard_index: int, shard_count: int) -> list[int]:
+    return [
+        seed_start + offset
+        for offset in range(programs)
+        if offset % shard_count == shard_index
+    ]
+
+
 def run_one(run_script: Path, family: str, seed: int, cases: int,
             compilers: list[str], output_dir: Path) -> dict:
     command = [
@@ -56,17 +64,26 @@ def run_one(run_script: Path, family: str, seed: int, cases: int,
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run a resumable CallMeMaybe differential-reflection campaign")
-    parser.add_argument("--programs", type=int, default=100)
+    parser.add_argument("--programs", type=int, default=100,
+                        help="number of seeds in the global campaign window; each selected family runs once per seed")
     parser.add_argument("--cases-per-program", type=int, default=1)
     parser.add_argument("--seed-start", type=int, default=1)
     parser.add_argument("--family", choices=["core", "shapes", "both"], default="both")
     parser.add_argument("--compiler", action="append", required=True)
     parser.add_argument("--output-dir", type=Path, default=Path("reflection-fuzz-campaign"))
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--shard-count", type=int, default=1,
+                        help="split the global seed window into this many deterministic shards")
+    parser.add_argument("--shard-index", type=int, default=0,
+                        help="zero-based shard to execute; seeds are assigned by global offset modulo shard count")
     args = parser.parse_args()
 
     if args.programs <= 0 or args.cases_per_program <= 0:
         raise SystemExit("--programs and --cases-per-program must be positive")
+    if args.shard_count <= 0:
+        raise SystemExit("--shard-count must be positive")
+    if args.shard_index < 0 or args.shard_index >= args.shard_count:
+        raise SystemExit("--shard-index must be in [0, --shard-count)")
 
     for compiler in args.compiler:
         if "=" not in compiler:
@@ -76,6 +93,7 @@ def main() -> None:
             raise SystemExit(f"empty compiler command: {compiler}")
 
     families = ["core", "shapes"] if args.family == "both" else [args.family]
+    seeds = selected_seeds(args.seed_start, args.programs, args.shard_index, args.shard_count)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     run_script = Path(__file__).with_name("run.py")
     summary_path = args.output_dir / "campaign.json"
@@ -94,8 +112,7 @@ def main() -> None:
         "runner_failure": 0,
     }
 
-    for offset in range(args.programs):
-        seed = args.seed_start + offset
+    for seed in seeds:
         for family in families:
             key = (family, seed)
             if key in previous:
@@ -116,6 +133,12 @@ def main() -> None:
 
             summary = {
                 "requested_seed_count": args.programs,
+                "selected_seed_count": len(seeds),
+                "seed_start": args.seed_start,
+                "shard": {
+                    "index": args.shard_index,
+                    "count": args.shard_count,
+                },
                 "families": families,
                 "cases_per_program": args.cases_per_program,
                 "generated_programs": len(records),
@@ -127,6 +150,11 @@ def main() -> None:
 
     print(json.dumps({
         "generated_programs": len(records),
+        "selected_seed_count": len(seeds),
+        "shard": {
+            "index": args.shard_index,
+            "count": args.shard_count,
+        },
         "counts": counts,
         "summary": str(summary_path),
     }, indent=2))
