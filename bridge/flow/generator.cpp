@@ -1,0 +1,187 @@
+#include "generator.hpp"
+
+#include <cctype>
+#include <cstdint>
+#include <sstream>
+#include <string>
+#include <string_view>
+
+#include "cmm_flow.h"
+
+namespace cmm::flow {
+namespace {
+
+struct AbiType {
+    std::string flow_type;
+    std::string pack;
+    std::string unpack;
+    std::string default_value;
+};
+
+bool scalar_borrow_type(uint32_t kind, std::string_view& flow_type, std::string_view& suffix)
+{
+    switch (kind)
+    {
+        case CMM_FLOW_BOOL: flow_type = "bool"; suffix = "bool"; return true;
+        case CMM_FLOW_I8: flow_type = "i8"; suffix = "i8"; return true;
+        case CMM_FLOW_U8: flow_type = "u8"; suffix = "u8"; return true;
+        case CMM_FLOW_I16: flow_type = "i16"; suffix = "i16"; return true;
+        case CMM_FLOW_U16: flow_type = "u16"; suffix = "u16"; return true;
+        case CMM_FLOW_I32: flow_type = "i32"; suffix = "i32"; return true;
+        case CMM_FLOW_U32: flow_type = "u32"; suffix = "u32"; return true;
+        case CMM_FLOW_I64: flow_type = "i64"; suffix = "i64"; return true;
+        case CMM_FLOW_U64: flow_type = "u64"; suffix = "u64"; return true;
+        case CMM_FLOW_F32: flow_type = "f32"; suffix = "f32"; return true;
+        case CMM_FLOW_F64: flow_type = "f64"; suffix = "f64"; return true;
+        default: return false;
+    }
+}
+
+bool abi_type(uint32_t kind, uint32_t pointee_kind, AbiType& out)
+{
+    switch (kind)
+    {
+        case CMM_FLOW_BOOL: out = {"bool", "cmm_bool", "cmm_as_bool", "false"}; return true;
+        case CMM_FLOW_I8: out = {"i8", "cmm_i8", "cmm_as_i8", "0"}; return true;
+        case CMM_FLOW_U8: out = {"u8", "cmm_u8", "cmm_as_u8", "0"}; return true;
+        case CMM_FLOW_I16: out = {"i16", "cmm_i16", "cmm_as_i16", "0"}; return true;
+        case CMM_FLOW_U16: out = {"u16", "cmm_u16", "cmm_as_u16", "0"}; return true;
+        case CMM_FLOW_I32: out = {"i32", "cmm_i32", "cmm_as_i32", "0"}; return true;
+        case CMM_FLOW_U32: out = {"u32", "cmm_u32", "cmm_as_u32", "0"}; return true;
+        case CMM_FLOW_I64: out = {"i64", "cmm_i64", "cmm_as_i64", "0"}; return true;
+        case CMM_FLOW_U64: out = {"u64", "cmm_u64", "cmm_as_u64", "0"}; return true;
+        case CMM_FLOW_F32: out = {"f32", "cmm_f32", "cmm_as_f32", "0.0"}; return true;
+        case CMM_FLOW_F64: out = {"f64", "cmm_f64", "cmm_as_f64", "0.0"}; return true;
+        case CMM_FLOW_STRING: out = {"string", "cmm_string", "cmm_as_string", "\"\""}; return true;
+        case CMM_FLOW_BYTES: out = {"span<u8>", "cmm_bytes", "cmm_as_byte_span", "cmm_as_byte_span(CmmFlowValue { kind: CMM_FLOW_BYTES, reserved: 0, bits: 0, extra: 0 })"}; return true;
+        case CMM_FLOW_OBJECT: out = {"CmmObject", "", "cmm_as_object", "CmmObject { object_id: 0 }"}; return true;
+        case CMM_FLOW_AGGREGATE: out = {"CmmAggregate", "cmm_aggregate", "cmm_as_aggregate", "CmmAggregate { aggregate_id: 0 }"}; return true;
+        case CMM_FLOW_POINTER:
+        case CMM_FLOW_MUT_REF:
+        case CMM_FLOW_CONST_REF:
+        {
+            std::string_view scalar;
+            std::string_view suffix;
+            if (!scalar_borrow_type(pointee_kind, scalar, suffix)) return false;
+            out.flow_type = "ptr<" + std::string(scalar) + ">";
+            if (kind == CMM_FLOW_POINTER) out.pack = "cmm_ptr_" + std::string(suffix);
+            else if (kind == CMM_FLOW_MUT_REF) out.pack = "cmm_mut_ref_" + std::string(suffix);
+            else out.pack = "cmm_const_ref_" + std::string(suffix);
+            out.unpack = "cmm_as_" + std::string(suffix) + "_ptr";
+            out.default_value = "null";
+            return true;
+        }
+        default: return false;
+    }
+}
+
+std::string sanitize(std::string_view input)
+{
+    std::string output;
+    output.reserve(input.size() + 1);
+    if (input.empty() || (!std::isalpha(static_cast<unsigned char>(input.front())) && input.front() != '_')) output.push_back('_');
+    for (char ch : input)
+    {
+        const unsigned char uch = static_cast<unsigned char>(ch);
+        output.push_back(std::isalnum(uch) || ch == '_' ? ch : '_');
+    }
+    return output;
+}
+
+cmm::Error append_wrapper(std::ostringstream& out, cmm::info function_id)
+{
+    const uint64_t parameter_count = cmm_flow_parameter_count(function_id);
+    const uint32_t return_kind = cmm_flow_return_kind(function_id);
+    const uint32_t return_pointee_kind = cmm_flow_return_pointee_kind(function_id);
+    const bool returns_void = return_kind == CMM_FLOW_VOID;
+    const bool has_object = cmm_flow_requires_instance(function_id) || cmm_flow_is_destructor(function_id);
+
+    AbiType return_type{};
+    if (!returns_void && !abi_type(return_kind, return_pointee_kind, return_type)) return cmm::Error::TypeMismatch;
+
+    const std::string name = wrapper_name(function_id);
+    const std::string result_name = "CmmResult_" + name;
+
+    out << "# reflected C++: " << cmm::display_string_of(function_id) << "\n";
+    out << "struct " << result_name << " {\n";
+    if (!returns_void) out << "    value: " << return_type.flow_type << ",\n";
+    out << "    error: i32\n}\n\n";
+
+    out << "export function " << name << '(';
+    bool emitted_parameter = false;
+    if (has_object)
+    {
+        out << "object: CmmObject";
+        emitted_parameter = true;
+    }
+    for (uint64_t index = 0; index < parameter_count; ++index)
+    {
+        AbiType parameter_type{};
+        if (!abi_type(cmm_flow_parameter_kind(function_id, index), cmm_flow_parameter_pointee_kind(function_id, index), parameter_type)) return cmm::Error::InvalidArgumentType;
+        if (emitted_parameter) out << ", ";
+        out << "arg" << index << ": " << parameter_type.flow_type;
+        emitted_parameter = true;
+    }
+    out << ") -> " << result_name << " {\n";
+    out << "    let function_id: u64 = " << function_id << "\n";
+
+    if (parameter_count != 0)
+    {
+        out << "    let mut args: array<CmmFlowValue, " << parameter_count << "> = [";
+        for (uint64_t index = 0; index < parameter_count; ++index)
+        {
+            AbiType parameter_type{};
+            abi_type(cmm_flow_parameter_kind(function_id, index), cmm_flow_parameter_pointee_kind(function_id, index), parameter_type);
+            if (index != 0) out << ", ";
+            out << parameter_type.pack << "(arg" << index << ')';
+        }
+        out << "]\n";
+    }
+
+    out << "    let mut result: CmmFlowValue = CmmFlowValue { kind: CMM_FLOW_VOID, reserved: 0, bits: 0, extra: 0 }\n";
+    out << "    let error: i32 = ";
+    if (has_object) out << "cmm_flow_invoke_method(function_id, object.object_id, ";
+    else out << "cmm_flow_invoke(function_id, ";
+    if (parameter_count == 0) out << "null";
+    else out << "&args[0]";
+    out << ", " << parameter_count << ", &result)\n";
+
+    if (returns_void)
+    {
+        out << "    return " << result_name << " { error: error }\n";
+    }
+    else
+    {
+        out << "    if error != 0 {\n";
+        out << "        return " << result_name << " { value: " << return_type.default_value << ", error: error }\n";
+        out << "    }\n";
+        out << "    return " << result_name << " { value: " << return_type.unpack << "(result), error: 0 }\n";
+    }
+
+    out << "}\n\n";
+    return cmm::Error::Success;
+}
+
+} // namespace
+
+std::string wrapper_name(cmm::info function_id)
+{
+    std::ostringstream stream;
+    stream << "cmm_" << sanitize(cmm::identifier_of(function_id)) << '_' << std::hex << function_id;
+    return stream.str();
+}
+
+GenerationResult generate_wrapper_fragment(std::span<const cmm::info> function_ids)
+{
+    std::ostringstream out;
+    out << "# Generated by CallMeMaybe C++26 reflection.\n";
+    out << "# Concatenate/import bridge/flow/call_me_maybe.flow before these wrappers.\n\n";
+    for (cmm::info function_id : function_ids)
+    {
+        const cmm::Error error = append_wrapper(out, function_id);
+        if (error != cmm::Error::Success) return GenerationResult{error, {}};
+    }
+    return GenerationResult{cmm::Error::Success, out.str()};
+}
+
+} // namespace cmm::flow

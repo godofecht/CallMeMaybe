@@ -1,0 +1,11 @@
+# Ownership-transfer declarations for bridge-managed CmmObject values.
+# Constructor wrappers transfer ownership to the bridge. Methods borrow the
+# handle. cmm_release consumes ownership by invoking the reflected destructor.
+
+extern {
+    function cmm_flow_release_object(object_handle: u64, type_id: u64) -> i32
+}
+
+export function cmm_release(object: CmmObject, type_id: u64) -> i32 {
+    return cmm_flow_release_object(object.object_id, type_id)
+}
