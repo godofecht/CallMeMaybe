@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
 from pathlib import Path
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_campaign(path: Path) -> dict:
@@ -30,6 +39,24 @@ def load_campaign(path: Path) -> dict:
     return campaign
 
 
+def validate_source_artifact(record: dict) -> str:
+    output_dir = record.get("output_dir")
+    expected_digest = record.get("manifest_sha256")
+    if not isinstance(output_dir, str) or not output_dir:
+        raise SystemExit("disagreement record is missing output_dir")
+    if not isinstance(expected_digest, str) or len(expected_digest) != 64:
+        raise SystemExit("disagreement record is missing manifest_sha256")
+
+    manifest_path = Path(output_dir) / "manifest.json"
+    if not manifest_path.is_file():
+        raise SystemExit(f"disagreement retained manifest is missing: {manifest_path}")
+
+    actual_digest = sha256_file(manifest_path)
+    if actual_digest != expected_digest:
+        raise SystemExit(f"disagreement retained manifest mutated: {manifest_path}")
+    return actual_digest
+
+
 def minimize_one(minimize_script: Path, record: dict, compilers: list[str],
                  output_dir: Path) -> dict:
     try:
@@ -44,6 +71,7 @@ def minimize_one(minimize_script: Path, record: dict, compilers: list[str],
     if cases <= 0:
         raise SystemExit(f"invalid disagreement case count for {family} seed {seed}: {cases}")
 
+    source_manifest_sha256 = validate_source_artifact(record)
     target = output_dir / family / f"seed-{seed:08d}"
     command = [
         sys.executable,
@@ -67,10 +95,12 @@ def minimize_one(minimize_script: Path, record: dict, compilers: list[str],
         "family": family,
         "seed": seed,
         "source_cases": cases,
+        "source_manifest_sha256": source_manifest_sha256,
         "status": "minimized" if completed.returncode == 0 else "minimization_failure",
         "returncode": completed.returncode,
         "output_dir": str(target),
         "manifest": str(manifest_path) if manifest_path.exists() else None,
+        "manifest_sha256": sha256_file(manifest_path) if manifest_path.exists() else None,
         "stdout": completed.stdout.strip(),
         "stderr": completed.stderr.strip(),
     }
@@ -95,6 +125,7 @@ def main() -> None:
     args = parser.parse_args()
 
     campaign = load_campaign(args.campaign)
+    source_campaign_sha256 = sha256_file(args.campaign)
     disagreements = [
         record for record in campaign["programs"] if record.get("status") == "disagreement"
     ]
@@ -114,6 +145,7 @@ def main() -> None:
         results.append(result)
         summary = {
             "source_campaign": str(args.campaign),
+            "source_campaign_sha256": source_campaign_sha256,
             "compilers": campaign["compilers"],
             "source_disagreement_count": len(disagreements),
             "minimized_count": sum(item["status"] == "minimized" for item in results),
@@ -125,6 +157,7 @@ def main() -> None:
     if not disagreements:
         summary = {
             "source_campaign": str(args.campaign),
+            "source_campaign_sha256": source_campaign_sha256,
             "compilers": campaign["compilers"],
             "source_disagreement_count": 0,
             "minimized_count": 0,
@@ -138,6 +171,7 @@ def main() -> None:
         "minimized_count": sum(item["status"] == "minimized" for item in results),
         "failure_count": sum(item["status"] != "minimized" for item in results),
         "summary": str(summary_path),
+        "summary_sha256": sha256_file(summary_path),
     }, indent=2))
 
     if any(item["status"] != "minimized" for item in results):
