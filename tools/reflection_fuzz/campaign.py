@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import hashlib
 import json
 import shlex
 import subprocess
@@ -14,6 +15,14 @@ def selected_seeds(seed_start: int, programs: int, shard_index: int, shard_count
         for offset in range(programs)
         if offset % shard_count == shard_index
     ]
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def campaign_identity(requested_seed_count: int, seed_start: int, shard_index: int,
@@ -32,8 +41,27 @@ def campaign_identity(requested_seed_count: int, seed_start: int, shard_index: i
     }
 
 
+def validate_record_artifact(record: dict) -> None:
+    output_dir = record.get("output_dir")
+    expected_digest = record.get("manifest_sha256")
+    if not isinstance(output_dir, str) or not output_dir:
+        raise SystemExit("cannot resume campaign with record missing output_dir")
+    if not isinstance(expected_digest, str) or len(expected_digest) != 64:
+        raise SystemExit("cannot resume campaign with record missing manifest_sha256")
+
+    manifest_path = Path(output_dir) / "manifest.json"
+    if not manifest_path.is_file():
+        raise SystemExit(f"cannot resume campaign with missing retained manifest: {manifest_path}")
+    actual_digest = sha256_file(manifest_path)
+    if actual_digest != expected_digest:
+        raise SystemExit(
+            f"cannot resume campaign with mutated retained manifest: {manifest_path}"
+        )
+
+
 def validate_resume_summary(summary: dict, expected_identity: dict,
-                            expected_records: set[tuple[str, int]]) -> None:
+                            expected_records: set[tuple[str, int]],
+                            verify_artifacts: bool = True) -> None:
     for key, expected in expected_identity.items():
         actual = summary.get(key)
         if actual != expected:
@@ -53,6 +81,8 @@ def validate_resume_summary(summary: dict, expected_identity: dict,
             raise SystemExit(f"cannot resume campaign with duplicate record: {key!r}")
         if key not in expected_records:
             raise SystemExit(f"cannot resume campaign with out-of-window record: {key!r}")
+        if verify_artifacts:
+            validate_record_artifact(record)
         seen.add(key)
 
 
@@ -97,6 +127,7 @@ def run_one(run_script: Path, family: str, seed: int, cases: int,
         "status": status,
         "returncode": completed.returncode,
         "output_dir": str(output_dir),
+        "manifest_sha256": sha256_file(manifest_path) if manifest_path.exists() else None,
         "stdout": completed.stdout.strip(),
         "stderr": completed.stderr.strip(),
     }
