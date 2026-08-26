@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import string
 from collections import Counter
 from pathlib import Path
 
@@ -30,6 +31,14 @@ def expected_keys(seed_start: int, requested_seed_count: int, families: list[str
         for seed in range(seed_start, seed_start + requested_seed_count)
         for family in families
     }
+
+
+def valid_sha256(value) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in string.hexdigits for character in value)
+    )
 
 
 def main() -> None:
@@ -85,6 +94,8 @@ def main() -> None:
             key = (record["family"], record["seed"])
             if key in seen:
                 raise SystemExit(f"duplicate campaign program {key}")
+            if not valid_sha256(record.get("manifest_sha256")):
+                raise SystemExit(f"program {key} in {path} is missing a valid manifest_sha256")
             seen.add(key)
             records.append(record)
 
