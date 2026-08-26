@@ -70,7 +70,7 @@ python3 tools/reflection_fuzz/campaign.py \
   --resume
 ```
 
-The remaining shard indexes are `1` through `7`. Keep compiler commands, seed start, program count, family selection and shard count identical across shards so the retained manifests describe one reproducible campaign.
+The remaining shard indexes are `1` through `7`. Keep compiler commands, seed start, program count, family selection and shard count identical across shards so the retained manifests describe one reproducible campaign. Resume now enforces this identity before reusing any prior record: compiler commands, seed window, shard identity, selected families and cases-per-program must match exactly, and duplicate or out-of-window records are rejected rather than silently mixed into a new run.
 
 Before promoting a sharded campaign as evidence, merge it through `merge_campaign.py`. The merger rejects missing or duplicate shard indexes, incompatible campaign metadata, incorrect per-shard seed counts, duplicate family/seed records, incorrect status totals, and any gap or extra program in the exact global seed/family Cartesian product. Only a fully covered campaign produces the merged manifest.
 
