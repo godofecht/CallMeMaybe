@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import hashlib
 import json
 import shlex
 import subprocess
@@ -13,6 +14,14 @@ from generate_shapes import render as render_shapes
 
 def run_command(command, cwd):
     return subprocess.run(command, cwd=cwd, text=True, capture_output=True)
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def main() -> None:
@@ -49,6 +58,8 @@ def main() -> None:
         "family": args.family,
         "seed": args.seed,
         "cases": args.cases,
+        "source": str(source_path),
+        "source_sha256": sha256_file(source_path),
         "compilers": [],
     }
 
@@ -74,24 +85,31 @@ def main() -> None:
                 "compile_returncode": compiled.returncode,
             }
 
-            (args.output_dir / f"{name}.compile.stdout.txt").write_text(compiled.stdout, encoding="utf-8")
-            (args.output_dir / f"{name}.compile.stderr.txt").write_text(compiled.stderr, encoding="utf-8")
+            compile_stdout_path = args.output_dir / f"{name}.compile.stdout.txt"
+            compile_stderr_path = args.output_dir / f"{name}.compile.stderr.txt"
+            compile_stdout_path.write_text(compiled.stdout, encoding="utf-8")
+            compile_stderr_path.write_text(compiled.stderr, encoding="utf-8")
+            compiler_record["compile_stdout_sha256"] = sha256_file(compile_stdout_path)
+            compiler_record["compile_stderr_sha256"] = sha256_file(compile_stderr_path)
 
             if compiled.returncode != 0:
                 manifest["compilers"].append(compiler_record)
-                (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+                (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
                 raise SystemExit(f"{name}: compilation failed for {args.family} corpus")
 
             executed = run_command([str(binary)], repo_root)
             compiler_record["run_returncode"] = executed.returncode
-            manifest["compilers"].append(compiler_record)
 
             output_path = args.output_dir / f"{name}.fingerprint.tsv"
+            run_stderr_path = args.output_dir / f"{name}.run.stderr.txt"
             output_path.write_text(executed.stdout, encoding="utf-8")
-            (args.output_dir / f"{name}.run.stderr.txt").write_text(executed.stderr, encoding="utf-8")
+            run_stderr_path.write_text(executed.stderr, encoding="utf-8")
+            compiler_record["fingerprint_sha256"] = sha256_file(output_path)
+            compiler_record["run_stderr_sha256"] = sha256_file(run_stderr_path)
+            manifest["compilers"].append(compiler_record)
 
             if executed.returncode != 0:
-                (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+                (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
                 raise SystemExit(f"{name}: generated {args.family} corpus failed its internal invariants")
 
             outputs[name] = executed.stdout
@@ -106,7 +124,7 @@ def main() -> None:
 
     manifest["reference"] = reference_name
     manifest["disagreements"] = disagreements
-    (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
 
     if disagreements:
         print(f"reflection disagreement in {args.family}: {reference_name} != {', '.join(disagreements)}")
