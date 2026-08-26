@@ -8,10 +8,12 @@ import tempfile
 from pathlib import Path
 
 
-def run_prefix(run_script, cases, seed, compilers, output_dir):
+def run_prefix(run_script, family, cases, seed, compilers, output_dir):
     command = [
         sys.executable,
         str(run_script),
+        "--family",
+        family,
         "--cases",
         str(cases),
         "--seed",
@@ -26,6 +28,7 @@ def run_prefix(run_script, cases, seed, compilers, output_dir):
 
 def main():
     parser = argparse.ArgumentParser(description="Minimize a reflection disagreement to the smallest generated prefix")
+    parser.add_argument("--family", choices=["core", "shapes"], default="core")
     parser.add_argument("--max-cases", type=int, required=True)
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--compiler", action="append", required=True)
@@ -42,7 +45,14 @@ def main():
     with tempfile.TemporaryDirectory(prefix="cmm-reflection-minimize-") as temporary:
         temp = Path(temporary)
 
-        probe = run_prefix(run_script, args.max_cases, args.seed, args.compiler, temp / "probe")
+        probe = run_prefix(
+            run_script,
+            args.family,
+            args.max_cases,
+            args.seed,
+            args.compiler,
+            temp / "probe",
+        )
         if probe.returncode != 3:
             sys.stderr.write(probe.stdout)
             sys.stderr.write(probe.stderr)
@@ -52,7 +62,14 @@ def main():
         high = args.max_cases
         while low < high:
             mid = (low + high) // 2
-            result = run_prefix(run_script, mid, args.seed, args.compiler, temp / f"prefix-{mid}")
+            result = run_prefix(
+                run_script,
+                args.family,
+                mid,
+                args.seed,
+                args.compiler,
+                temp / f"prefix-{mid}",
+            )
             if result.returncode == 3:
                 high = mid
             elif result.returncode == 0:
@@ -64,13 +81,20 @@ def main():
 
         if args.output_dir.exists():
             shutil.rmtree(args.output_dir)
-        final_result = run_prefix(run_script, low, args.seed, args.compiler, args.output_dir)
+        final_result = run_prefix(
+            run_script,
+            args.family,
+            low,
+            args.seed,
+            args.compiler,
+            args.output_dir,
+        )
         if final_result.returncode != 3:
             sys.stderr.write(final_result.stdout)
             sys.stderr.write(final_result.stderr)
             raise SystemExit("minimal prefix stopped reproducing during final capture")
 
-        print(f"smallest disagreeing prefix: {low} case(s), seed {args.seed}")
+        print(f"smallest disagreeing prefix: {low} case(s), family {args.family}, seed {args.seed}")
         print(f"retained artifacts: {args.output_dir}")
 
 
