@@ -49,3 +49,25 @@ python3 tools/reflection_fuzz/minimize.py \
 ```
 
 `--family` accepts `core` or `shapes` and defaults to `core` for compatibility with earlier invocations. A compiler crash or ordinary compile failure is not treated as a semantic mismatch; minimization stops and preserves the diagnostic distinction rather than mislabelling it.
+
+## Large resumable campaigns
+
+`campaign.py` can split one global seed window into deterministic non-overlapping shards. Seed assignment is based on the seed's zero-based offset modulo `--shard-count`, so changing execution order or resuming a shard cannot change which programs belong to it. Each shard writes its index, shard count, seed start and selected-seed count into `campaign.json`.
+
+`--programs` is the number of seeds in the global window, not the total number of generated programs. With `--family both`, every selected seed generates one `core` program and one `shapes` program. For example, 50,000 seeds across both families produce a 100,000-program campaign.
+
+An eight-shard 100,000-program campaign can be run as eight independent local commands by varying only `--shard-index` and the output directory:
+
+```sh
+python3 tools/reflection_fuzz/campaign.py \
+  --programs 50000 \
+  --family both \
+  --shard-count 8 \
+  --shard-index 0 \
+  --compiler 'gcc=g++-16 -std=c++26 -freflection' \
+  --compiler 'clang=/path/to/clang++ -std=c++26 -freflection-latest -stdlib=libc++' \
+  --output-dir reflection-fuzz-campaign/shard-0 \
+  --resume
+```
+
+The remaining shard indexes are `1` through `7`. Keep compiler commands, seed start, program count, family selection and shard count identical across shards so the retained manifests describe one reproducible campaign.
