@@ -90,6 +90,7 @@ https://github.com/godofecht/CallMeMaybe/pull/6
 - [x] evidence policy and experimental structure
 - [x] generator for benchmark and fuzzer result tables
 - [x] machine metadata schema and collector
+- [x] benchmark compiler executable path + SHA-256 provenance
 - [x] consteval-registry architectural comparison
 - [x] Flow bridge binding-footprint / ABI-storage evidence
 - [x] final evidence-bounded findings section
