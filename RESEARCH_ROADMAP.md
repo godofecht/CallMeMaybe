@@ -91,6 +91,7 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] reject duplicate entity IDs during static registry construction
 - [x] machine-readable public runtime/static API parity audit
 - [x] API parity audit includes macro-generated type-predicate surface
+- [x] static regression corpus has a mechanical no-`register_rrefl` audit with parser regression coverage
 - [x] static data-member materialization with class-local lookup and read/ref/write semantics
 - [x] protected/private base classification and runtime-adjustment rejection regressions
 - [x] multi-base declaration order and base-edge parent/type/access metadata regression
