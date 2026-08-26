@@ -35,6 +35,24 @@ jobs:
                 -DCMM_BUILD_BENCHMARKS=ON &&
               cmake --build build &&
               ctest --test-dir build --output-on-failure &&
+              python3 tools/reflection_fuzz/run.py \
+                --family core \
+                --cases 8 \
+                --seed 1 \
+                --compiler "gcc=g++ -std=c++26 -freflection" \
+                --output-dir /tmp/cmm-reflection-fuzz-core &&
+              python3 tools/reflection_fuzz/run.py \
+                --family shapes \
+                --cases 8 \
+                --seed 1 \
+                --compiler "gcc=g++ -std=c++26 -freflection" \
+                --output-dir /tmp/cmm-reflection-fuzz-shapes &&
+              python3 tools/reflection_fuzz/campaign.py \
+                --programs 2 \
+                --cases-per-program 1 \
+                --family both \
+                --compiler "gcc=g++ -std=c++26 -freflection" \
+                --output-dir /tmp/cmm-reflection-fuzz-campaign &&
               ./build/benchmarks/cmm_runtime_bench --iterations 10000 --batch 256 --json /tmp/cmm-benchmark.json &&
               ./build/benchmarks/cmm_rttr_bench --iterations 10000 --json /tmp/cmm-rttr.json &&
               ./build/benchmarks/cmm_metapp_bench --iterations 10000 --json /tmp/cmm-metapp.json &&
