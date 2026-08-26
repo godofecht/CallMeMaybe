@@ -17,7 +17,7 @@ using VariableSetterFn = cmm::Error (*)(void* address, const Value& value);
 
 class Variable : public Entity {
 public:
-    Variable(std::string_view name, cmm::info type_id)
+    constexpr Variable(std::string_view name, cmm::info type_id)
         : Entity(name), type_id_(type_id) {}
 
     cmm::Error get_value(Value& out) const {
@@ -44,18 +44,18 @@ public:
         return setter_(address_, value);
     }
 
-    cmm::info type_id() const { return type_id_; }
+    constexpr cmm::info type_id() const { return type_id_; }
 
-    const void* address() const { return address_; }
-    void* mutable_address() const { return is_const_ ? nullptr : address_; }
-    void set_address(void* ptr) { address_ = ptr; }
+    constexpr const void* address() const { return address_; }
+    constexpr void* mutable_address() const { return is_const_ ? nullptr : address_; }
+    constexpr void set_address(void* ptr) { address_ = ptr; }
 
-    bool is_const() const { return is_const_; }
-    void set_is_const(bool c) { is_const_ = c; }
+    constexpr bool is_const() const { return is_const_; }
+    constexpr void set_is_const(bool c) { is_const_ = c; }
 
-    void set_getter_thunk(VariableGetterFn fn) { getter_ = fn; }
-    void set_ref_getter_thunk(VariableRefGetterFn fn) { ref_getter_ = fn; }
-    void set_setter_thunk(VariableSetterFn fn) { setter_ = fn; }
+    constexpr void set_getter_thunk(VariableGetterFn fn) { getter_ = fn; }
+    constexpr void set_ref_getter_thunk(VariableRefGetterFn fn) { ref_getter_ = fn; }
+    constexpr void set_setter_thunk(VariableSetterFn fn) { setter_ = fn; }
 
 private:
     cmm::info type_id_{cmm::invalid_info};
