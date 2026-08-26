@@ -9,6 +9,8 @@
     "processor",
     "cpu_model",
     "compiler_command",
+    "compiler_executable",
+    "compiler_executable_sha256",
     "compiler_version",
     "commit_sha",
     "build_type"
@@ -20,6 +22,8 @@
     "processor": {"type": "string"},
     "cpu_model": {"type": "string"},
     "compiler_command": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "compiler_executable": {"type": "string", "minLength": 1},
+    "compiler_executable_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "compiler_version": {"type": "string"},
     "commit_sha": {"type": "string", "minLength": 7},
     "build_type": {"type": "string"},
