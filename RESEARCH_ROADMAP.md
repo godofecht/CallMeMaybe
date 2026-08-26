@@ -38,6 +38,7 @@ https://github.com/godofecht/CallMeMaybe/pull/3
 - [x] resumable classified multi-program campaign runner
 - [x] deterministic non-overlapping campaign sharding with retained shard metadata
 - [x] exact shard-coverage verification and deterministic merged campaign manifest
+- [x] resume rejects incompatible compiler/campaign metadata and duplicate/out-of-window records
 - [x] green GCC CI smoke coverage across both corpus families
 - [ ] 100k cross-compiler campaign and retained disagreement corpus
 
