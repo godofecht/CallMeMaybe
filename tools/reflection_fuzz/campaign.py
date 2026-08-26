@@ -16,6 +16,46 @@ def selected_seeds(seed_start: int, programs: int, shard_index: int, shard_count
     ]
 
 
+def campaign_identity(requested_seed_count: int, seed_start: int, shard_index: int,
+                      shard_count: int, families: list[str], cases_per_program: int,
+                      compilers: list[str]) -> dict:
+    return {
+        "requested_seed_count": requested_seed_count,
+        "seed_start": seed_start,
+        "shard": {
+            "index": shard_index,
+            "count": shard_count,
+        },
+        "families": families,
+        "cases_per_program": cases_per_program,
+        "compilers": compilers,
+    }
+
+
+def validate_resume_summary(summary: dict, expected_identity: dict,
+                            expected_records: set[tuple[str, int]]) -> None:
+    for key, expected in expected_identity.items():
+        actual = summary.get(key)
+        if actual != expected:
+            raise SystemExit(
+                f"cannot resume incompatible campaign: {key} is {actual!r}, expected {expected!r}"
+            )
+
+    seen: set[tuple[str, int]] = set()
+    for record in summary.get("programs", []):
+        try:
+            key = (record["family"], record["seed"])
+        except KeyError as error:
+            raise SystemExit(
+                f"cannot resume malformed campaign: program record missing {error.args[0]!r}"
+            ) from error
+        if key in seen:
+            raise SystemExit(f"cannot resume campaign with duplicate record: {key!r}")
+        if key not in expected_records:
+            raise SystemExit(f"cannot resume campaign with out-of-window record: {key!r}")
+        seen.add(key)
+
+
 def run_one(run_script: Path, family: str, seed: int, cases: int,
             compilers: list[str], output_dir: Path) -> dict:
     command = [
@@ -94,13 +134,26 @@ def main() -> None:
 
     families = ["core", "shapes"] if args.family == "both" else [args.family]
     seeds = selected_seeds(args.seed_start, args.programs, args.shard_index, args.shard_count)
+    identity = campaign_identity(
+        args.programs,
+        args.seed_start,
+        args.shard_index,
+        args.shard_count,
+        families,
+        args.cases_per_program,
+        args.compiler,
+    )
+    expected_records = {(family, seed) for seed in seeds for family in families}
+
     args.output_dir.mkdir(parents=True, exist_ok=True)
     run_script = Path(__file__).with_name("run.py")
     summary_path = args.output_dir / "campaign.json"
 
     previous = {}
     if args.resume and summary_path.exists():
-        for record in json.loads(summary_path.read_text(encoding="utf-8")).get("programs", []):
+        prior_summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        validate_resume_summary(prior_summary, identity, expected_records)
+        for record in prior_summary.get("programs", []):
             previous[(record["family"], record["seed"])] = record
 
     records = []
@@ -132,17 +185,9 @@ def main() -> None:
             counts[record["status"]] += 1
 
             summary = {
-                "requested_seed_count": args.programs,
+                **identity,
                 "selected_seed_count": len(seeds),
-                "seed_start": args.seed_start,
-                "shard": {
-                    "index": args.shard_index,
-                    "count": args.shard_count,
-                },
-                "families": families,
-                "cases_per_program": args.cases_per_program,
                 "generated_programs": len(records),
-                "compilers": args.compiler,
                 "counts": counts,
                 "programs": records,
             }
