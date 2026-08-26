@@ -50,6 +50,10 @@ add_executable(cmm_static_variable_metadata static_variable_metadata.cpp)
 target_link_libraries(cmm_static_variable_metadata PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_variable_metadata COMMAND cmm_static_variable_metadata)
 
+add_executable(cmm_static_static_member_metadata static_static_member_metadata.cpp)
+target_link_libraries(cmm_static_static_member_metadata PRIVATE CallMeMaybe::cmm)
+add_test(NAME cmm_static_static_member_metadata COMMAND cmm_static_static_member_metadata)
+
 add_executable(cmm_static_reference_invocation static_reference_invocation.cpp)
 target_link_libraries(cmm_static_reference_invocation PRIVATE CallMeMaybe::cmm)
 add_test(NAME cmm_static_reference_invocation COMMAND cmm_static_reference_invocation)
