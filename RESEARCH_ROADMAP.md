@@ -31,6 +31,7 @@ https://github.com/godofecht/CallMeMaybe/pull/3
 - [x] enum/high-bit metadata
 - [x] GCC / Clang-P2996 fingerprint comparison harness
 - [x] retained manifests and smallest-prefix minimization
+- [x] minimizer verifies the immediately smaller prefix as an explicit minimality witness
 - [x] virtual-diamond inheritance and derived-to-virtual-base invocation corpus
 - [x] cv/ref-qualified member-function family
 - [x] overload-set family and ambiguous bare-lookup rejection
