@@ -14,6 +14,22 @@ def load(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def compiler_fingerprint_key(data: dict) -> tuple:
+    fingerprints = data.get("compiler_fingerprints")
+    if not isinstance(fingerprints, list) or not fingerprints:
+        raise SystemExit("campaign manifest is missing compiler_fingerprints")
+    return tuple(
+        (
+            item["label"],
+            item["command"],
+            item["executable"],
+            item["executable_sha256"],
+            item["version"],
+        )
+        for item in fingerprints
+    )
+
+
 def campaign_key(data: dict) -> tuple:
     return (
         data["requested_seed_count"],
@@ -21,6 +37,7 @@ def campaign_key(data: dict) -> tuple:
         tuple(data["families"]),
         data["cases_per_program"],
         tuple(data["compilers"]),
+        compiler_fingerprint_key(data),
         data["shard"]["count"],
     )
 
@@ -68,6 +85,7 @@ def main() -> None:
     families = shards[0]["families"]
     cases_per_program = shards[0]["cases_per_program"]
     compilers = shards[0]["compilers"]
+    compiler_fingerprints = shards[0]["compiler_fingerprints"]
 
     records = []
     seen = set()
@@ -118,6 +136,7 @@ def main() -> None:
         "cases_per_program": cases_per_program,
         "generated_programs": len(records),
         "compilers": compilers,
+        "compiler_fingerprints": compiler_fingerprints,
         "counts": {status: counts.get(status, 0) for status in STATUSES},
         "programs": records,
         "source_shards": [str(path) for path in args.shards],
@@ -128,6 +147,7 @@ def main() -> None:
 
     print(json.dumps({
         "generated_programs": len(records),
+        "compiler_fingerprints": compiler_fingerprints,
         "counts": merged["counts"],
         "output": str(args.output),
     }, indent=2))
