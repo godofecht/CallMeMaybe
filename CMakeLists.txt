@@ -137,6 +137,8 @@ endif()
 
 option(CMM_BUILD_EXAMPLES "Build CallMeMaybe examples" ${_cmm_examples_default})
 option(CMM_BUILD_TESTS "Build CallMeMaybe regression tests" ${_cmm_tests_default})
+option(CMM_BUILD_BENCHMARKS "Build CallMeMaybe performance benchmarks" OFF)
+option(CMM_BUILD_FLOW_BRIDGE "Build the experimental Flow reflection bridge" OFF)
 
 if(CMM_BUILD_EXAMPLES)
     add_subdirectory(examples)
@@ -145,6 +147,14 @@ endif()
 if(CMM_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(CMM_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
+
+if(CMM_BUILD_FLOW_BRIDGE)
+    add_subdirectory(bridge/flow)
 endif()
 
 install(TARGETS cmm EXPORT CallMeMaybeTargets)
