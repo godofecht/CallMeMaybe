@@ -39,6 +39,7 @@ https://github.com/godofecht/CallMeMaybe/pull/3
 - [x] deterministic non-overlapping campaign sharding with retained shard metadata
 - [x] exact shard-coverage verification and deterministic merged campaign manifest
 - [x] resume rejects incompatible compiler/campaign metadata and duplicate/out-of-window records
+- [x] campaign disagreement extraction and batch minimization from retained manifest
 - [x] green GCC CI smoke coverage across both corpus families
 - [ ] 100k cross-compiler campaign and retained disagreement corpus
 
