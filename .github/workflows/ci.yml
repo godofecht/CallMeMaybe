@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "stabilize/**"]
+    branches: [main, "stabilize/**", "research/**"]
   pull_request:
 
 permissions:
@@ -22,10 +22,26 @@ jobs:
             gcc:16.2.0 \
             bash -lc '
               apt-get update >/dev/null &&
-              apt-get install -y --no-install-recommends cmake ninja-build >/dev/null &&
-              cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release &&
+              apt-get install -y --no-install-recommends cmake ninja-build python3 time binutils librttr-dev git >/dev/null &&
+              git clone --quiet https://github.com/wqking/metapp.git /tmp/metapp &&
+              git -C /tmp/metapp checkout --quiet 2ef2ea1728fce0c9a6526b0820b03b7002d234d1 &&
+              sed -i "/#include <array>/a #include <cstdint>" /tmp/metapp/include/metapp/variantdata.h &&
+              cmake -S /tmp/metapp -B /tmp/metapp-build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/tmp/metapp-install &&
+              cmake --build /tmp/metapp-build &&
+              cmake --install /tmp/metapp-build &&
+              cmake -S . -B build -G Ninja \
+                -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_PREFIX_PATH=/tmp/metapp-install \
+                -DCMM_BUILD_BENCHMARKS=ON &&
               cmake --build build &&
               ctest --test-dir build --output-on-failure &&
+              ./build/benchmarks/cmm_runtime_bench --iterations 10000 --batch 256 --json /tmp/cmm-benchmark.json &&
+              ./build/benchmarks/cmm_rttr_bench --iterations 10000 --json /tmp/cmm-rttr.json &&
+              ./build/benchmarks/cmm_metapp_bench --iterations 10000 --json /tmp/cmm-metapp.json &&
+              python3 benchmarks/run_scale.py \
+                --compiler "g++ -std=c++26 -freflection" \
+                --counts 10 \
+                --output /tmp/cmm-scale.json &&
               cmake --install build --prefix /tmp/cmm-install
             '
 
