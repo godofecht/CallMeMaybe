@@ -48,7 +48,7 @@ python3 tools/reflection_fuzz/minimize.py \
   --output-dir reflection-fuzz-minimized
 ```
 
-`--family` accepts `core` or `shapes` and defaults to `core` for compatibility with earlier invocations. A compiler crash or ordinary compile failure is not treated as a semantic mismatch; minimization stops and preserves the diagnostic distinction rather than mislabelling it.
+`--family` accepts `core` or `shapes` and defaults to `core` for compatibility with earlier invocations. A compiler crash or ordinary compile failure is not treated as a semantic mismatch; minimization stops and preserves the diagnostic distinction rather than mislabelling it. Before retaining the final result, the minimizer now reruns the immediately smaller positive prefix and requires it to complete without a semantic disagreement. This provides an explicit minimality witness instead of relying only on the binary-search boundary; a one-case result is trivially minimal because no smaller positive prefix exists.
 
 ## Large resumable campaigns
 
