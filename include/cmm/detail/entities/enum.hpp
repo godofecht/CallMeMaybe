@@ -2,8 +2,8 @@
 #define CALLMEMAYBE_ENUM_HPP
 
 #include <cstdint>
+#include <span>
 #include <string_view>
-#include <vector>
 #include "cmm/info.hpp"
 #include "cmm/detail/entities/type.hpp"
 
@@ -19,23 +19,14 @@ public:
         cmm::info entity_id;
     };
 
-    explicit Enum(std::string_view name) : Type(name) {
+    constexpr explicit Enum(std::string_view name) : Type(name) {
         flags_.is_enum = true;
     }
 
-    void add_enumerator(std::string_view name, std::uint64_t value_bits,
-                        bool is_signed, cmm::info entity_id) {
-        enumerators_.push_back({name, value_bits, is_signed, entity_id});
-    }
+    constexpr void set_enumerators(std::span<const Entry> entries) { enumerators_ = entries; }
+    constexpr std::span<const Entry> enumerators() const { return enumerators_; }
 
-    void add_enumerator(std::string_view name, std::int64_t value,
-                        cmm::info entity_id) {
-        add_enumerator(name, static_cast<std::uint64_t>(value), true, entity_id);
-    }
-
-    const std::vector<Entry>& enumerators() const { return enumerators_; }
-
-    bool get_value_by_name(std::string_view name, std::int64_t& out_value) const {
+    constexpr bool get_value_by_name(std::string_view name, std::int64_t& out_value) const {
         for (const auto& entry : enumerators_) {
             if (entry.name == name) {
                 out_value = static_cast<std::int64_t>(entry.value_bits);
@@ -45,8 +36,8 @@ public:
         return false;
     }
 
-    bool get_value_bits_by_name(std::string_view name, std::uint64_t& out_value,
-                                bool& out_is_signed) const {
+    constexpr bool get_value_bits_by_name(std::string_view name, std::uint64_t& out_value,
+                                          bool& out_is_signed) const {
         for (const auto& entry : enumerators_) {
             if (entry.name == name) {
                 out_value = entry.value_bits;
@@ -57,11 +48,11 @@ public:
         return false;
     }
 
-    std::string_view get_name_by_value(std::int64_t value) const {
+    constexpr std::string_view get_name_by_value(std::int64_t value) const {
         return get_name_by_value_bits(static_cast<std::uint64_t>(value));
     }
 
-    std::string_view get_name_by_value_bits(std::uint64_t value_bits) const {
+    constexpr std::string_view get_name_by_value_bits(std::uint64_t value_bits) const {
         for (const auto& entry : enumerators_) {
             if (entry.value_bits == value_bits) return entry.name;
         }
@@ -69,7 +60,7 @@ public:
     }
 
 private:
-    std::vector<Entry> enumerators_;
+    std::span<const Entry> enumerators_{};
 };
 
 } // namespace detail

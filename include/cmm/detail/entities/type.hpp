@@ -10,7 +10,6 @@
 namespace cmm {
 namespace detail {
 
-// Bitfield flags mirroring the std::meta type predicates
 struct TypeFlags {
     bool is_void : 1 {false};
     bool is_null_pointer : 1 {false};
@@ -34,35 +33,28 @@ struct TypeFlags {
     bool is_unsigned : 1 {false};
 };
 
-// Primitives and base for other types (Classes, Enums)
 class Type : public Entity {
 public:
-    explicit Type(std::string_view name) : Entity(name) {}
+    constexpr Type() = default;
+    constexpr explicit Type(std::string_view name) : Entity(name) {}
 
-    std::size_t size() const { return size_; }
-    std::size_t alignment() const { return alignment_; }
-    const TypeFlags& flags() const { return flags_; }
+    constexpr std::size_t size() const { return size_; }
+    constexpr std::size_t alignment() const { return alignment_; }
+    constexpr const TypeFlags& flags() const { return flags_; }
+    constexpr cmm::info underlying_type_id() const { return underlying_type_id_; }
+    constexpr std::size_t array_extent() const { return array_extent_; }
 
-    // Type Peeling so if this is an int*, it returns the ID for int for example.
-    // If this is an int[5], we also just get the int ID
-    cmm::info underlying_type_id() const { return underlying_type_id_; }
-    
-    // For arrays
-    std::size_t array_extent() const { return array_extent_; }
-
-    void set_size(std::size_t s) { size_ = s; }
-    void set_alignment(std::size_t a) { alignment_ = a; }
-    void set_flags(const TypeFlags& f) { flags_ = f; }
-    void set_underlying_type_id(cmm::info id) { underlying_type_id_ = id; }
-    void set_array_extent(std::size_t ext) { array_extent_ = ext; }
+    constexpr void set_size(std::size_t s) { size_ = s; }
+    constexpr void set_alignment(std::size_t a) { alignment_ = a; }
+    constexpr void set_flags(const TypeFlags& f) { flags_ = f; }
+    constexpr void set_underlying_type_id(cmm::info id) { underlying_type_id_ = id; }
+    constexpr void set_array_extent(std::size_t ext) { array_extent_ = ext; }
 
 protected:
     std::size_t size_{0};
     std::size_t alignment_{0};
     TypeFlags flags_{};
-    
-    // For pointers, references, and arrays to point to their base type
-    cmm::info underlying_type_id_{cmm::invalid_info}; 
+    cmm::info underlying_type_id_{cmm::invalid_info};
     std::size_t array_extent_{0};
 };
 

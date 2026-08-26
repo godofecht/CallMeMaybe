@@ -27,6 +27,7 @@
 #include "cmm/detail/entities/type.hpp"
 #include "cmm/detail/entities/variable.hpp"
 #include "cmm/detail/invocation/thunk.hpp"
+#include "cmm/detail/static_function_enum_metadata.hpp"
 
 #ifdef CMM_ENABLE_REGISTRY_LOGS
     #define CMM_REG_LOG(x) do { std::cout << x; } while(0)
@@ -70,7 +71,7 @@ public:
         }
 
         const cmm::info id = cmm::detail::hash_entity(EntityRefl);
-        if (fully_registered_.contains(id)) return cmm::Error::Success;
+        if (is_fully_materialized(id)) return cmm::Error::Success;
         if (registering_.contains(id)) return cmm::Error::Success;
 
         registering_.insert(id);
@@ -87,12 +88,12 @@ public:
         } else if constexpr (std::meta::is_enum_type(EntityRefl)) {
             result = register_enum<EntityRefl>(id);
         } else if constexpr (std::meta::is_type(EntityRefl)) {
-            ensure_type_registered<EntityRefl>();
+            ensure_type_dependency<EntityRefl>();
             result = cmm::Error::Success;
         }
 
         registering_.erase(id);
-        if (result == cmm::Error::Success) fully_registered_.insert(id);
+        if (result == cmm::Error::Success) mark_fully_materialized(id);
         return result;
     }
 
@@ -158,6 +159,11 @@ public:
     }
 
 private:
+    enum class MaterializationState : unsigned char {
+        DependencyStub,
+        FullyMaterialized
+    };
+
     struct TransparentStringHash {
         using is_transparent = void;
         std::size_t operator()(std::string_view sv) const noexcept {
@@ -169,8 +175,17 @@ private:
     std::recursive_mutex registration_mutex_;
     std::unordered_map<cmm::info, EntityVariant> entity_registry_;
     std::unordered_map<std::string, cmm::info, TransparentStringHash, std::equal_to<>> top_level_entities_;
-    std::unordered_set<cmm::info> fully_registered_;
+    std::unordered_map<cmm::info, MaterializationState> materialization_state_;
     std::unordered_set<cmm::info> registering_;
+
+    bool is_fully_materialized(cmm::info id) const {
+        auto it = materialization_state_.find(id);
+        return it != materialization_state_.end() && it->second == MaterializationState::FullyMaterialized;
+    }
+
+    void mark_fully_materialized(cmm::info id) {
+        materialization_state_.insert_or_assign(id, MaterializationState::FullyMaterialized);
+    }
 
     void freeze() const {
         frozen_.store(true, std::memory_order_release);
@@ -228,16 +243,19 @@ private:
     }
 
     template <std::meta::info TypeRefl>
-    cmm::info ensure_type_registered() {
+    cmm::info ensure_type_dependency() {
         const cmm::info id = cmm::detail::hash_entity(TypeRefl);
         if (entity_registry_.contains(id)) return id;
 
         if constexpr (std::meta::is_class_type(TypeRefl) || std::meta::is_union_type(TypeRefl)) {
             entity_registry_.emplace(id, make_class_stub<TypeRefl>());
+            materialization_state_.emplace(id, MaterializationState::DependencyStub);
         } else if constexpr (std::meta::is_enum_type(TypeRefl)) {
             entity_registry_.emplace(id, make_enum_stub<TypeRefl>());
+            materialization_state_.emplace(id, MaterializationState::DependencyStub);
         } else {
             entity_registry_.emplace(id, make_type<TypeRefl>());
+            mark_fully_materialized(id);
         }
 
         if constexpr (std::meta::is_fundamental_type(TypeRefl) ||
@@ -265,11 +283,11 @@ private:
         t.set_flags(make_type_flags<TypeRefl>());
 
         if constexpr (std::meta::is_pointer_type(TypeRefl)) {
-            t.set_underlying_type_id(ensure_type_registered<std::meta::remove_pointer(TypeRefl)>());
+            t.set_underlying_type_id(ensure_type_dependency<std::meta::remove_pointer(TypeRefl)>());
         } else if constexpr (std::meta::is_reference_type(TypeRefl)) {
-            t.set_underlying_type_id(ensure_type_registered<std::meta::remove_reference(TypeRefl)>());
+            t.set_underlying_type_id(ensure_type_dependency<std::meta::remove_reference(TypeRefl)>());
         } else if constexpr (std::meta::is_array_type(TypeRefl)) {
-            t.set_underlying_type_id(ensure_type_registered<std::meta::remove_extent(TypeRefl)>());
+            t.set_underlying_type_id(ensure_type_dependency<std::meta::remove_extent(TypeRefl)>());
             if constexpr (std::meta::is_bounded_array_type(TypeRefl)) {
                 t.set_array_extent(std::meta::extent(TypeRefl, 0));
             }
@@ -345,14 +363,15 @@ private:
     cmm::Error register_function_signature(Function& func, cmm::info func_id) {
         if constexpr (!std::meta::is_constructor(FuncRefl) && !std::meta::is_destructor(FuncRefl)) {
             constexpr std::meta::info ret_type_refl = std::meta::return_type_of(FuncRefl);
-            func.set_return_type_id(ensure_type_registered<ret_type_refl>());
+            func.set_return_type_id(ensure_type_dependency<ret_type_refl>());
         }
 
+        StaticFunctionMetadata<FuncRefl>::apply(func);
         std::size_t idx = 0;
         cmm::Error result = cmm::Error::Success;
         template for (constexpr std::meta::info p : std::define_static_array(std::meta::parameters_of(FuncRefl))) {
             if (result == cmm::Error::Success) {
-                result = register_parameter<FuncRefl, p>(func_id, func, idx);
+                result = register_parameter<FuncRefl, p>(func_id, idx);
             }
             ++idx;
         }
@@ -360,11 +379,11 @@ private:
     }
 
     template <std::meta::info FuncRefl, std::meta::info ParamRefl>
-    cmm::Error register_parameter(cmm::info func_id, Function& func, std::size_t idx) {
+    cmm::Error register_parameter(cmm::info func_id, std::size_t idx) {
         constexpr std::meta::info p_type_refl = std::meta::type_of(ParamRefl);
-        const cmm::info p_type_id = ensure_type_registered<p_type_refl>();
+        const cmm::info p_type_id = ensure_type_dependency<p_type_refl>();
         constexpr std::meta::info p_decayed_refl = std::meta::remove_cvref(p_type_refl);
-        const cmm::info p_decayed_id = ensure_type_registered<p_decayed_refl>();
+        const cmm::info p_decayed_id = ensure_type_dependency<p_decayed_refl>();
 
         const cmm::info p_id = cmm::detail::hash_entity(ParamRefl);
         std::string_view p_name;
@@ -374,15 +393,13 @@ private:
         p.set_display_name(std::meta::display_string_of(ParamRefl));
         p.set_decayed_type_id(p_decayed_id);
 
-        if (cmm::Error err = insert_unique(p_id, std::move(p)); err != cmm::Error::Success) return err;
-        func.add_parameter_id(p_id);
-        return cmm::Error::Success;
+        return insert_unique(p_id, std::move(p));
     }
 
     template <std::meta::info VarRefl>
     cmm::Error register_variable(cmm::info var_id) {
         constexpr std::meta::info var_type_refl = std::meta::type_of(VarRefl);
-        const cmm::info type_id = ensure_type_registered<var_type_refl>();
+        const cmm::info type_id = ensure_type_dependency<var_type_refl>();
         constexpr bool is_const = std::meta::is_const_type(var_type_refl);
 
         Variable var(std::meta::identifier_of(VarRefl), type_id);
@@ -409,25 +426,23 @@ private:
 
     template <std::meta::info EnumRefl>
     cmm::Error register_enum(cmm::info enum_id) {
-        ensure_type_registered<EnumRefl>();
+        ensure_type_dependency<EnumRefl>();
 
         auto& e = std::get<Enum>(entity_registry_.at(enum_id));
         constexpr std::meta::info underlying = std::meta::underlying_type(EnumRefl);
-        e.set_underlying_type_id(ensure_type_registered<underlying>());
+        e.set_underlying_type_id(ensure_type_dependency<underlying>());
+        StaticEnumMetadata<EnumRefl>::apply(e);
 
+        std::size_t idx = 0;
         cmm::Error result = cmm::Error::Success;
         template for (constexpr std::meta::info enumerator : std::define_static_array(std::meta::enumerators_of(EnumRefl))) {
             if (result != cmm::Error::Success) continue;
 
-            const cmm::info enumerator_id = cmm::detail::hash_entity(enumerator);
-            const std::string_view enumerator_name = std::meta::identifier_of(enumerator);
-            const auto val = static_cast<std::int64_t>([:enumerator:]);
-
-            Enumerator en(enumerator_name, val);
+            const auto& entry = StaticEnumMetadata<EnumRefl>::entries[idx++];
+            Enumerator en(entry.name, entry.value_bits, entry.is_signed);
             en.set_display_name(std::meta::display_string_of(enumerator));
             en.set_parent_id(enum_id);
-            result = insert_unique(enumerator_id, std::move(en));
-            if (result == cmm::Error::Success) e.add_enumerator(enumerator_name, val, enumerator_id);
+            result = insert_unique(entry.entity_id, std::move(en));
         }
 
         if (result != cmm::Error::Success) return result;
@@ -437,7 +452,7 @@ private:
 
     template <std::meta::info ClassRefl>
     cmm::Error register_class(cmm::info class_id) {
-        ensure_type_registered<ClassRefl>();
+        ensure_type_dependency<ClassRefl>();
         Class cls = make_class_stub<ClassRefl>();
 
         cmm::Error result = cmm::Error::Success;
@@ -449,7 +464,7 @@ private:
             result = register_entity<base_type_refl>();
             if (result != cmm::Error::Success) continue;
 
-            const cmm::info base_type_id = ensure_type_registered<base_type_refl>();
+            const cmm::info base_type_id = ensure_type_dependency<base_type_refl>();
             const cmm::info base_id = cmm::detail::hash_entity(base);
 
             Base base_entity(std::meta::display_string_of(base_type_refl), base_type_id, class_id);
@@ -485,7 +500,7 @@ private:
             if constexpr (std::meta::is_nonstatic_data_member(member)) {
                 constexpr std::meta::info mem_type_refl = std::meta::type_of(member);
                 constexpr bool is_const = std::meta::is_const_type(mem_type_refl);
-                const cmm::info mem_type_id = ensure_type_registered<mem_type_refl>();
+                const cmm::info mem_type_id = ensure_type_dependency<mem_type_refl>();
 
                 DataMember dm(std::meta::identifier_of(member), false);
                 dm.set_display_name(std::meta::display_string_of(member));
@@ -545,7 +560,7 @@ private:
             } else if constexpr (std::meta::is_static_member(member)) {
                 constexpr std::meta::info mem_type_refl = std::meta::type_of(member);
                 constexpr bool is_const = std::meta::is_const_type(mem_type_refl);
-                const cmm::info mem_type_id = ensure_type_registered<mem_type_refl>();
+                const cmm::info mem_type_id = ensure_type_dependency<mem_type_refl>();
 
                 DataMember dm(std::meta::identifier_of(member), true);
                 dm.set_display_name(std::meta::display_string_of(member));

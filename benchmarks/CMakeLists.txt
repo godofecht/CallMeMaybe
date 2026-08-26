@@ -1,0 +1,45 @@
+add_executable(cmm_runtime_bench runtime_dispatch.cpp)
+target_link_libraries(cmm_runtime_bench PRIVATE CallMeMaybe::cmm)
+target_compile_features(cmm_runtime_bench PRIVATE cxx_std_26)
+
+find_package(RTTR CONFIG QUIET)
+if(TARGET RTTR::Core)
+    add_executable(cmm_rttr_bench rttr_adapter.cpp)
+    target_link_libraries(cmm_rttr_bench PRIVATE RTTR::Core)
+    target_compile_features(cmm_rttr_bench PRIVATE cxx_std_26)
+endif()
+
+find_package(metapp CONFIG QUIET)
+if(TARGET metapp::metapp)
+    find_path(CMM_METAPP_INCLUDE_DIR
+        NAMES metapp/allmetatypes.h
+        HINTS ${CMAKE_PREFIX_PATH}
+        PATH_SUFFIXES include
+    )
+    if(NOT CMM_METAPP_INCLUDE_DIR)
+        message(FATAL_ERROR "metapp target found but installed headers were not located")
+    endif()
+
+    add_executable(cmm_metapp_bench metapp_adapter.cpp)
+    target_link_libraries(cmm_metapp_bench PRIVATE metapp::metapp)
+    target_include_directories(cmm_metapp_bench PRIVATE ${CMM_METAPP_INCLUDE_DIR})
+    target_compile_features(cmm_metapp_bench PRIVATE cxx_std_26)
+endif()
+
+if(MSVC)
+    target_compile_options(cmm_runtime_bench PRIVATE /O2)
+    if(TARGET cmm_rttr_bench)
+        target_compile_options(cmm_rttr_bench PRIVATE /O2)
+    endif()
+    if(TARGET cmm_metapp_bench)
+        target_compile_options(cmm_metapp_bench PRIVATE /O2)
+    endif()
+else()
+    target_compile_options(cmm_runtime_bench PRIVATE -O3 -DNDEBUG)
+    if(TARGET cmm_rttr_bench)
+        target_compile_options(cmm_rttr_bench PRIVATE -O3 -DNDEBUG)
+    endif()
+    if(TARGET cmm_metapp_bench)
+        target_compile_options(cmm_metapp_bench PRIVATE -O3 -DNDEBUG)
+    endif()
+endif()

@@ -8,13 +8,15 @@ namespace detail {
 
 class Entity {
 public:
-    explicit Entity(std::string_view name)
+    constexpr Entity() = default;
+
+    constexpr explicit Entity(std::string_view name)
         : name_(name), display_name_(name) {}
 
-    std::string_view name() const { return name_; }
-    std::string_view display_name() const { return display_name_; }
+    constexpr std::string_view name() const { return name_; }
+    constexpr std::string_view display_name() const { return display_name_; }
 
-    void set_display_name(std::string_view display_name) {
+    constexpr void set_display_name(std::string_view display_name) {
         display_name_ = display_name;
     }
 
