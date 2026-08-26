@@ -32,7 +32,7 @@ python3 tools/reflection_fuzz/run.py \
   --compiler 'clang=/path/to/clang++ -std=c++26 -freflection-latest -stdlib=libc++'
 ```
 
-Results are written to `reflection-fuzz-results/`: generated source, compiler stdout/stderr, one fingerprint per compiler, and a manifest recording the exact commands and disagreement set. A disagreement exits with status 3 so a corpus can be minimized and retained as a regression test rather than disappearing into a fuzz log.
+Results are written to `reflection-fuzz-results/`: generated source, compiler stdout/stderr, one fingerprint per compiler, and a manifest recording the exact commands and disagreement set. The manifest also records SHA-256 digests for the generated source, compiler diagnostics, run diagnostics and fingerprints, so retained semantic evidence is content-addressed rather than trusted only by path. A disagreement exits with status 3 so a corpus can be minimized and retained as a regression test rather than disappearing into a fuzz log.
 
 ## Minimize a disagreement
 
@@ -70,9 +70,9 @@ python3 tools/reflection_fuzz/campaign.py \
   --resume
 ```
 
-The remaining shard indexes are `1` through `7`. Keep compiler commands, seed start, program count, family selection and shard count identical across shards so the retained manifests describe one reproducible campaign. Resume now enforces this identity before reusing any prior record: compiler commands, seed window, shard identity, selected families and cases-per-program must match exactly, and duplicate or out-of-window records are rejected rather than silently mixed into a new run.
+The remaining shard indexes are `1` through `7`. Keep compiler commands, seed start, program count, family selection and shard count identical across shards so the retained manifests describe one reproducible campaign. Resume enforces this identity before reusing any prior record: compiler commands, seed window, shard identity, selected families and cases-per-program must match exactly, and duplicate or out-of-window records are rejected rather than silently mixed into a new run. Each campaign record retains the SHA-256 of its per-program `manifest.json`; resume recomputes that digest and rejects a missing or mutated retained manifest instead of silently reusing stale evidence.
 
-Before promoting a sharded campaign as evidence, merge it through `merge_campaign.py`. The merger rejects missing or duplicate shard indexes, incompatible campaign metadata, incorrect per-shard seed counts, duplicate family/seed records, incorrect status totals, and any gap or extra program in the exact global seed/family Cartesian product. Only a fully covered campaign produces the merged manifest.
+Before promoting a sharded campaign as evidence, merge it through `merge_campaign.py`. The merger rejects missing or duplicate shard indexes, incompatible campaign metadata, incorrect per-shard seed counts, duplicate family/seed records, incorrect status totals, missing per-program manifest digests, and any gap or extra program in the exact global seed/family Cartesian product. Only a fully covered, content-addressed campaign produces the merged manifest.
 
 ```sh
 python3 tools/reflection_fuzz/merge_campaign.py \
