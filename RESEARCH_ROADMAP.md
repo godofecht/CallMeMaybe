@@ -89,6 +89,7 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] reject duplicate entity IDs during static registry construction
 - [x] machine-readable public runtime/static API parity audit
 - [x] API parity audit includes macro-generated type-predicate surface
+- [x] static data-member materialization with class-local lookup and read/ref/write semantics
 - [ ] eliminate startup registration without semantic regression
 - [x] GCC 16.2 release + ASan/UBSan validation on the implemented static backend
 - [ ] Clang/P2996 validation on the new backend
