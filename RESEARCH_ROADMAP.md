@@ -91,6 +91,7 @@ https://github.com/godofecht/CallMeMaybe/pull/5
 - [x] API parity audit includes macro-generated type-predicate surface
 - [x] static data-member materialization with class-local lookup and read/ref/write semantics
 - [x] protected/private base classification and runtime-adjustment rejection regressions
+- [x] multi-base declaration order and base-edge parent/type/access metadata regression
 - [ ] eliminate startup registration without semantic regression
 - [x] GCC 16.2 release + ASan/UBSan validation on the implemented static backend
 - [ ] Clang/P2996 validation on the new backend
