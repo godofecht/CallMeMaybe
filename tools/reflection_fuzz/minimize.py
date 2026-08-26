@@ -79,14 +79,16 @@ def main():
                 sys.stderr.write(result.stderr)
                 raise SystemExit(f"prefix {mid} failed for a reason other than semantic disagreement")
 
+        witness_dir = None
         if low > 1:
+            witness_dir = temp / f"minimality-witness-{low - 1}"
             predecessor = run_prefix(
                 run_script,
                 args.family,
                 low - 1,
                 args.seed,
                 args.compiler,
-                temp / f"minimality-witness-{low - 1}",
+                witness_dir,
             )
             if predecessor.returncode == 3:
                 raise SystemExit(
@@ -114,11 +116,18 @@ def main():
             sys.stderr.write(final_result.stderr)
             raise SystemExit("minimal prefix stopped reproducing during final capture")
 
+        if witness_dir is not None:
+            retained_witness = args.output_dir / "minimality-witness"
+            shutil.copytree(witness_dir, retained_witness)
+
         print(f"smallest disagreeing prefix: {low} case(s), family {args.family}, seed {args.seed}")
         if low == 1:
             print("minimality witness: no smaller positive prefix exists")
         else:
-            print(f"minimality witness: prefix {low - 1} completed without semantic disagreement")
+            print(
+                f"minimality witness: prefix {low - 1} completed without semantic disagreement "
+                f"and is retained at {args.output_dir / 'minimality-witness'}"
+            )
         print(f"retained artifacts: {args.output_dir}")
 
 
