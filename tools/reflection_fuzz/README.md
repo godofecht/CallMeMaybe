@@ -7,7 +7,7 @@ The first corpus family targets bugs that are disproportionately likely in a run
 - same-named members in distinct declaring classes
 - different physical layouts for semantically similar classes
 - parameter-position identity for repeated parameter types
-- parent metadata for members, parameters and enumerators
+- parent metadata for members / parameters / enumerators
 - namespace-qualified type identity
 - enum metadata including high-bit unsigned values
 
@@ -71,3 +71,13 @@ python3 tools/reflection_fuzz/campaign.py \
 ```
 
 The remaining shard indexes are `1` through `7`. Keep compiler commands, seed start, program count, family selection and shard count identical across shards so the retained manifests describe one reproducible campaign.
+
+Before promoting a sharded campaign as evidence, merge it through `merge_campaign.py`. The merger rejects missing or duplicate shard indexes, incompatible campaign metadata, incorrect per-shard seed counts, duplicate family/seed records, incorrect status totals, and any gap or extra program in the exact global seed/family Cartesian product. Only a fully covered campaign produces the merged manifest.
+
+```sh
+python3 tools/reflection_fuzz/merge_campaign.py \
+  reflection-fuzz-campaign/shard-{0,1,2,3,4,5,6,7}/campaign.json \
+  --output reflection-fuzz-campaign/campaign.json
+```
+
+The merged manifest preserves the compiler commands and campaign parameters, recomputes status totals from the records, sorts records deterministically by seed then family, and retains the source shard paths. Its exit classification matches `campaign.py`: semantic disagreements exit 3, compile/invariant/runner failures exit 1, and a complete all-green campaign exits 0.
