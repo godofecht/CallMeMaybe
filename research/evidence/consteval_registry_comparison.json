@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "comparison_kind": "architectural-status",
+  "performance_claim": false,
+  "source": {
+    "repository": "godofecht/CallMeMaybe",
+    "consteval_branch": "research/consteval-registry",
+    "consteval_head": "a4d3901a76c678498d6a0ca4ea6d7570fb62f38e",
+    "upstream_experiment_head": "10c85912ed28433c31698670f42c89ae2c198979"
+  },
+  "runtime_backend": {
+    "explicit_registration_in_matched_harness": true,
+    "registration_api": "cmm::register_rrefl",
+    "runtime_lookup_checksum_matched_by_harness": true
+  },
+  "consteval_backend": {
+    "namespace_scope_static_registry_declaration": true,
+    "consteval_entity_index": true,
+    "consteval_name_index": true,
+    "non_templated_registry_view": true,
+    "duplicate_entity_id_rejection": true,
+    "public_static_metadata_query_surface": true,
+    "reflection_built_free_function_invocation": true,
+    "reflection_built_member_invocation": true,
+    "constructor_destructor_lifecycle_surface": true,
+    "dynamic_object_ownership_facade": true,
+    "matched_scaling_harness": true,
+    "scale_points": [10, 100, 1000, 10000]
+  },
+  "semantic_status": {
+    "parent_aware_member_identity_slice": true,
+    "parameter_identity_slice": true,
+    "high_bit_enum_slice": true,
+    "cv_ref_invocation_slice": true,
+    "overload_ambiguity_slice": true,
+    "declaration_order_slice": true,
+    "derived_to_base_adjustment_slice": true,
+    "null_instance_slice": true,
+    "full_stabilization_regression_corpus_complete": false,
+    "clang_p2996_validation_complete": false
+  },
+  "quantitative_status": {
+    "controlled_machine_results_committed": false,
+    "process_startup_measured": false,
+    "compile_time_results_committed": false,
+    "peak_compiler_rss_results_committed": false,
+    "binary_size_results_committed": false,
+    "runtime_heap_results_committed": false,
+    "lookup_latency_results_committed": false,
+    "invocation_latency_results_committed": false
+  },
+  "interpretation": "The consteval branch has enough implemented surface for a source-backed architectural comparison with the stabilized runtime registry, but not enough controlled-machine or cross-compiler evidence for a performance ranking or full-backend equivalence claim."
+}
