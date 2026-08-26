@@ -36,10 +36,11 @@ Results are written to `reflection-fuzz-results/`: generated source, compiler st
 
 ## Minimize a disagreement
 
-For this deterministic corpus family, `minimize.py` binary-searches the generated prefix and retains the smallest prefix that still produces a semantic fingerprint disagreement:
+`minimize.py` binary-searches the generated prefix and retains the smallest prefix that still produces a semantic fingerprint disagreement. Pass the same corpus family that produced the disagreement so minimization cannot silently switch from `shapes` back to the default `core` generator:
 
 ```sh
 python3 tools/reflection_fuzz/minimize.py \
+  --family shapes \
   --max-cases 1000 \
   --seed 7 \
   --compiler 'gcc=g++-16 -std=c++26 -freflection' \
@@ -47,4 +48,4 @@ python3 tools/reflection_fuzz/minimize.py \
   --output-dir reflection-fuzz-minimized
 ```
 
-A compiler crash or ordinary compile failure is not treated as a semantic mismatch; minimization stops and preserves the diagnostic distinction rather than mislabelling it.
+`--family` accepts `core` or `shapes` and defaults to `core` for compatibility with earlier invocations. A compiler crash or ordinary compile failure is not treated as a semantic mismatch; minimization stops and preserves the diagnostic distinction rather than mislabelling it.
