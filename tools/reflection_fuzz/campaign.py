@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import shlex
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -25,9 +26,45 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def compiler_fingerprints(compilers: list[str]) -> list[dict]:
+    fingerprints = []
+    for compiler in compilers:
+        label, command = compiler.split("=", 1)
+        argv = shlex.split(command)
+        executable = shutil.which(argv[0])
+        if executable is None:
+            raise SystemExit(f"compiler executable not found for {label}: {argv[0]}")
+
+        completed = subprocess.run(
+            [executable, "--version"],
+            text=True,
+            capture_output=True,
+            timeout=10,
+        )
+        if completed.returncode != 0:
+            diagnostic = (completed.stderr or completed.stdout).strip()
+            raise SystemExit(
+                f"failed to fingerprint compiler {label}: {diagnostic or completed.returncode}"
+            )
+
+        version_lines = (completed.stdout or completed.stderr).strip().splitlines()
+        if not version_lines:
+            raise SystemExit(f"compiler {label} produced no --version output")
+
+        resolved = str(Path(executable).resolve())
+        fingerprints.append({
+            "label": label,
+            "command": command,
+            "executable": resolved,
+            "executable_sha256": sha256_file(Path(resolved)),
+            "version": version_lines[0],
+        })
+    return fingerprints
+
+
 def campaign_identity(requested_seed_count: int, seed_start: int, shard_index: int,
                       shard_count: int, families: list[str], cases_per_program: int,
-                      compilers: list[str]) -> dict:
+                      compilers: list[str], compiler_identity: list[dict]) -> dict:
     return {
         "requested_seed_count": requested_seed_count,
         "seed_start": seed_start,
@@ -38,6 +75,7 @@ def campaign_identity(requested_seed_count: int, seed_start: int, shard_index: i
         "families": families,
         "cases_per_program": cases_per_program,
         "compilers": compilers,
+        "compiler_fingerprints": compiler_identity,
     }
 
 
@@ -163,6 +201,7 @@ def main() -> None:
         if not shlex.split(command):
             raise SystemExit(f"empty compiler command: {compiler}")
 
+    fingerprints = compiler_fingerprints(args.compiler)
     families = ["core", "shapes"] if args.family == "both" else [args.family]
     seeds = selected_seeds(args.seed_start, args.programs, args.shard_index, args.shard_count)
     identity = campaign_identity(
@@ -173,6 +212,7 @@ def main() -> None:
         families,
         args.cases_per_program,
         args.compiler,
+        fingerprints,
     )
     expected_records = {(family, seed) for seed in seeds for family in families}
 
@@ -231,6 +271,7 @@ def main() -> None:
             "index": args.shard_index,
             "count": args.shard_count,
         },
+        "compiler_fingerprints": fingerprints,
         "counts": counts,
         "summary": str(summary_path),
     }, indent=2))
