@@ -42,6 +42,7 @@ https://github.com/godofecht/CallMeMaybe/pull/3
 - [x] campaign disagreement extraction and batch minimization from retained manifest
 - [x] content-address generated sources, compiler fingerprints, diagnostics and per-program manifests
 - [x] resume rejects mutated retained manifests and shard merge requires manifest digests
+- [x] batch minimizer re-verifies source disagreement manifests and content-addresses minimized manifests
 - [x] green GCC CI smoke coverage across both corpus families
 - [ ] 100k cross-compiler campaign and retained disagreement corpus
 
